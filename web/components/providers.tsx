@@ -20,7 +20,7 @@ function Toasts() {
 
 export function Providers({ children, demo }: { children: React.ReactNode; demo: boolean }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
       <Tooltip.Provider delayDuration={300}>
         <UIProvider demo={demo}>
           {children}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -8,11 +8,10 @@ import { cn } from "@/lib/utils";
 const opts = [
   { v: "light", icon: Sun, label: "Light" },
   { v: "dark", icon: Moon, label: "Dark" },
-  { v: "system", icon: Monitor, label: "System" },
 ] as const;
 
 export function ThemeToggle({ compact }: { compact?: boolean }) {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (compact) {
@@ -30,7 +29,7 @@ export function ThemeToggle({ compact }: { compact?: boolean }) {
   return (
     <div role="radiogroup" aria-label="Theme" className="flex h-8 items-center rounded-lg border border-border bg-surface-2 p-0.5">
       {opts.map(({ v, icon: Icon, label }) => {
-        const active = mounted && theme === v;
+        const active = mounted && resolvedTheme === v;
         return (
           <button
             key={v}

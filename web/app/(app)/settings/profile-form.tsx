@@ -62,20 +62,24 @@ function Field({ label, hint, htmlFor, children }: { label: string; hint?: strin
 }
 
 export function ProfileForm({ profile }: { profile: Profile }) {
-  const p = profile?.preferences ?? {};
+  const p = (profile?.preferences ?? {}) as Preferences & Record<string, unknown>;
+  const pick = (a: unknown, b: unknown) => (Array.isArray(a) && a.length ? a : Array.isArray(b) ? b : []) as string[];
   const [resume, setResume] = useState(profile?.resumeMd ?? "");
-  const [roles, setRoles] = useState<string[]>(p.roles ?? []);
+  const [roles, setRoles] = useState<string[]>(pick(p.roles, p.target_titles));
   const [locations, setLocations] = useState<string[]>(p.locations ?? []);
   const [skills, setSkills] = useState<string[]>(p.skills ?? []);
-  const [dealbreakers, setDealbreakers] = useState<string[]>(p.dealbreakers ?? []);
-  const [remote, setRemote] = useState(String(p.remote ?? "any"));
+  const [dealbreakers, setDealbreakers] = useState<string[]>(pick(p.dealbreakers, p.exclude_title_keywords));
+  const [remote, setRemote] = useState(String(p.remote ?? (p.remote_ok === false ? "onsite_ok" : "any")));
   const [minExp, setMinExp] = useState(p.min_exp ?? 0);
-  const [maxExp, setMaxExp] = useState(p.max_exp ?? 10);
+  const [maxExp, setMaxExp] = useState(p.max_exp ?? (typeof p.years_experience === "number" ? p.years_experience + 1 : 10));
   const [pending, start] = useTransition();
 
   const save = () =>
     start(async () => {
-      const prefs: Preferences = { ...p, roles, locations, skills, dealbreakers, remote: remote as Preferences["remote"], min_exp: minExp, max_exp: maxExp };
+      const prefs = {
+        ...p, roles, locations, skills, dealbreakers, remote: remote as Preferences["remote"], min_exp: minExp, max_exp: maxExp,
+        target_titles: roles, exclude_title_keywords: dealbreakers, remote_ok: remote !== "onsite_ok", years_experience: Math.max(minExp, maxExp - 1),
+      } as Preferences;
       const res = await saveProfile(resume, prefs);
       handleResult(res, res.ok ? `Saved as profile v${res.data?.version}` : undefined);
     });

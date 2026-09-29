@@ -65,7 +65,7 @@ export function CommandPalette() {
                 value={q}
                 onValueChange={setQ}
                 placeholder="Search jobs, companies, or type a command…"
-                className="h-12 flex-1 bg-transparent text-sm text-fg outline-none placeholder:text-fg-subtle"
+                className="h-12 flex-1 bg-transparent text-sm text-fg outline-none focus-visible:outline-none placeholder:text-fg-subtle"
               />
               <Kbd>esc</Kbd>
             </div>
