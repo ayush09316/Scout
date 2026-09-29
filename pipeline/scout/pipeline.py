@@ -208,7 +208,7 @@ def select_candidates(session: Session, profile: Profile, ctx: RunContext) -> li
     kept = []
     rejected: dict[str, int] = {}
     for job in rows:
-        ok, reason = passes(FilterJob(job.title, job.company_name, job.location, job.remote, job.seniority, job.min_exp, job.posted_at), prefs)
+        ok, reason = passes(FilterJob(job.title, job.company_name, job.location, job.remote, job.seniority, job.min_exp, job.posted_at, job.description_md or ""), prefs)
         if ok:
             kept.append(job)
         else:
