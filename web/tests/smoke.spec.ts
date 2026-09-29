@@ -39,7 +39,8 @@ test("job detail shows score breakdown and cover note", async ({ page }) => {
   await expect(page.getByText("Skills match")).toBeVisible();
   await expect(page.getByText("Embedding similarity")).toBeVisible();
   await page.getByRole("button", { name: /Generate cover note|Regenerate/ }).click();
-  await expect(page.getByText("Demo mode", { exact: true })).toBeVisible();
+  await expect(page.getByText("Cover note ready")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Copy cover note" })).toBeVisible();
 });
 
 test("tracker shows kanban columns with cards", async ({ page }) => {
