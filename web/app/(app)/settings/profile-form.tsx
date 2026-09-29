@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
+
 import { useState, useTransition } from "react";
 import { LoaderCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -130,11 +132,17 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             <TagInput id="dealbreakers" value={dealbreakers} onChange={setDealbreakers} placeholder="night shift" />
           </Field>
           <Field label="Remote" htmlFor="remote">
-            <select id="remote" value={remote} onChange={(e) => setRemote(e.target.value)} className={input}>
-              <option value="any">Remote or on-site</option>
-              <option value="remote_only">Remote only</option>
-              <option value="onsite_ok">On-site in my locations</option>
-            </select>
+            <Select
+              ariaLabel="Work mode"
+              size="md"
+              value={remote}
+              onChange={setRemote}
+              options={[
+                { value: "any", label: "Remote or on-site" },
+                { value: "remote_only", label: "Remote only" },
+                { value: "onsite_ok", label: "On-site in my locations" },
+              ]}
+            />
           </Field>
           <Field label="Experience (years)" htmlFor="min_exp">
             <div className="flex items-center gap-2">

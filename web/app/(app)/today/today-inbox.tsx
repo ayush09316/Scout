@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -33,15 +35,19 @@ const inTab = (j: JobListItem, t: Tab) => {
   return t === "all" ? true : t === "top" ? p >= 0.7 : p >= 0.4 && p < 0.7;
 };
 
-const selectCls =
-  "h-8 rounded-lg border border-border bg-surface pl-2.5 pr-7 text-[13px] text-fg shadow-card hover:border-border-strong appearance-none bg-[length:12px] bg-[right_8px_center] bg-no-repeat";
-const chevron = {
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-};
+
+const CITIES = ["Bengaluru", "Hyderabad", "Pune", "Mumbai", "Chennai", "Gurugram", "Noida", "Delhi", "Kolkata", "Ahmedabad"];
+
+function places(location: string | null, remote: boolean): string[] {
+  const l = (location ?? "").toLowerCase();
+  const out = CITIES.filter((c) => l.includes(c.toLowerCase()) || (c === "Bengaluru" && (l.includes("bangalore") || l.includes("blr"))));
+  if (remote || l.includes("remote")) out.push(l.includes("india") || out.length ? "Remote · India" : "Remote · Global");
+  return out.length ? out : [location ?? "Other"];
+}
 
 export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("top");
+  const [tab, setTab] = useState<Tab>(() => (jobs.some((j) => inTab(j, "top")) ? "top" : jobs.some((j) => inTab(j, "maybe")) ? "maybe" : "all"));
   const [f, setF] = useState<Filters>(DEFAULT);
   const [hidden, setHidden] = useState<Set<number>>(new Set());
   const [sel, setSel] = useState(0);
@@ -50,7 +56,7 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
 
   const options = useMemo(() => {
     const uniq = (xs: (string | null)[]) => [...new Set(xs.filter((x): x is string => !!x))].sort();
-    return { locations: uniq(jobs.map((j) => j.location)), seniority: uniq(jobs.map((j) => j.seniority)), sources: uniq(jobs.map((j) => j.source)) };
+    return { locations: uniq(jobs.flatMap((j) => places(j.location, j.remote))), seniority: uniq(jobs.map((j) => j.seniority)), sources: uniq(jobs.map((j) => j.source)) };
   }, [jobs]);
 
   const filtered = useMemo(() => {
@@ -58,7 +64,7 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
       (j) =>
         !hidden.has(j.id) &&
         (f.remote === "any" || (f.remote === "remote" ? j.remote : !j.remote)) &&
-        (!f.location || j.location === f.location) &&
+        (!f.location || places(j.location, j.remote).includes(f.location)) &&
         (!f.seniority || j.seniority === f.seniority) &&
         (!f.source || j.source === f.source) &&
         (j.fitProb ?? 0) * 100 >= f.minScore,
@@ -155,10 +161,7 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <select aria-label="Sort" value={f.sort} onChange={(e) => set("sort", e.target.value as Filters["sort"])} className={cn(selectCls, "hidden sm:block")} style={chevron}>
-              <option value="score">Best match</option>
-              <option value="newest">Newest</option>
-            </select>
+            <Select ariaLabel="Sort" value={f.sort} onChange={(v) => set("sort", v as Filters["sort"])} options={[{ value: "score", label: "Best match" }, { value: "newest", label: "Newest" }]} className="hidden sm:inline-flex" />
             <Button size="sm" variant={showFilters || activeFilters ? "secondary" : "outline"} onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters}>
               <SlidersHorizontal />
               Filters
@@ -181,37 +184,11 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
                 </button>
               ))}
             </div>
-            <select aria-label="Location" value={f.location} onChange={(e) => set("location", e.target.value)} className={selectCls} style={chevron}>
-              <option value="">All locations</option>
-              {options.locations.map((l) => (
-                <option key={l}>{l}</option>
-              ))}
-            </select>
-            <select aria-label="Seniority" value={f.seniority} onChange={(e) => set("seniority", e.target.value)} className={selectCls} style={chevron}>
-              <option value="">Any seniority</option>
-              {options.seniority.map((l) => (
-                <option key={l} value={l} className="capitalize">
-                  {l}
-                </option>
-              ))}
-            </select>
-            <select aria-label="Minimum fit" value={f.minScore} onChange={(e) => set("minScore", Number(e.target.value))} className={selectCls} style={chevron}>
-              {[0, 50, 60, 70, 80, 90].map((v) => (
-                <option key={v} value={v}>
-                  {v === 0 ? "Any fit" : `≥ ${v}% fit`}
-                </option>
-              ))}
-            </select>
-            <select aria-label="Source" value={f.source} onChange={(e) => set("source", e.target.value)} className={selectCls} style={chevron}>
-              <option value="">All sources</option>
-              {options.sources.map((l) => (
-                <option key={l}>{l}</option>
-              ))}
-            </select>
-            <select aria-label="Sort" value={f.sort} onChange={(e) => set("sort", e.target.value as Filters["sort"])} className={cn(selectCls, "sm:hidden")} style={chevron}>
-              <option value="score">Best match</option>
-              <option value="newest">Newest</option>
-            </select>
+            <Select ariaLabel="Location" value={f.location} onChange={(v) => set("location", v)} options={[{ value: "", label: "All locations" }, ...options.locations.map((l) => ({ value: l, label: l }))]} />
+            <Select ariaLabel="Seniority" value={f.seniority} onChange={(v) => set("seniority", v)} options={[{ value: "", label: "Any seniority" }, ...options.seniority.map((l) => ({ value: l, label: l[0].toUpperCase() + l.slice(1) }))]} />
+            <Select ariaLabel="Minimum fit" value={String(f.minScore)} onChange={(v) => set("minScore", Number(v))} options={[0, 50, 60, 70, 80, 90].map((v) => ({ value: String(v), label: v === 0 ? "Any fit" : `≥ ${v}% fit` }))} />
+            <Select ariaLabel="Source" value={f.source} onChange={(v) => set("source", v)} options={[{ value: "", label: "All sources" }, ...options.sources.map((l) => ({ value: l, label: l[0].toUpperCase() + l.slice(1) }))]} />
+            <Select ariaLabel="Sort" value={f.sort} onChange={(v) => set("sort", v as Filters["sort"])} options={[{ value: "score", label: "Best match" }, { value: "newest", label: "Newest" }]} className="sm:hidden" />
             {activeFilters > 0 && (
               <Button size="sm" variant="ghost" onClick={() => setF((p) => ({ ...DEFAULT, sort: p.sort }))}>
                 <X />

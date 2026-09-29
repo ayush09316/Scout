@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
+
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Bookmark, Send, ThumbsDown, ThumbsUp } from "lucide-react";
@@ -37,19 +39,13 @@ export function JobActions({ jobId, url, lastAction }: { jobId: number; url: str
         <ThumbsDown />
       </Button>
       {state && stages.includes(state) && state !== "saved" ? (
-        <select
-          aria-label="Tracker stage"
+        <Select
+          ariaLabel="Tracker stage"
           value={state}
-          disabled={pending}
-          onChange={(e) => act(e.target.value as FeedbackAction)}
-          className="h-9 rounded-lg border border-border bg-surface px-3 text-sm font-medium capitalize shadow-card"
-        >
-          {stages.map((s) => (
-            <option key={s} value={s} className="capitalize">
-              {s}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => act(v as FeedbackAction)}
+          options={stages.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) }))}
+          className="h-9 min-w-32 text-sm font-medium"
+        />
       ) : (
         <Button variant="outline" disabled={pending} onClick={() => act("saved")} aria-pressed={state === "saved"} className={cn(state === "saved" && "border-accent/40 bg-accent-soft text-accent-soft-fg")}>
           <Bookmark className={cn(state === "saved" && "fill-current")} />
