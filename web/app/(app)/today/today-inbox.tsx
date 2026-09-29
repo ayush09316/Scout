@@ -138,8 +138,8 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
         }
       />
 
-      <div className="sticky top-14 z-20 -mx-4 mt-5 border-b border-border bg-bg/90 px-4 backdrop-blur md:top-0 md:mx-0 md:px-0">
-        <div className="flex items-center justify-between gap-2">
+      <div className="sticky top-14 z-20 -mx-4 mt-5 bg-bg/90 px-4 backdrop-blur md:top-0 md:mx-0 md:px-0">
+        <div className="flex items-center justify-between gap-2 border-b border-border">
           <div role="tablist" aria-label="Match buckets" className="-mb-px flex gap-1 overflow-x-auto">
             {tabs.map((t, i) => (
               <button
@@ -170,15 +170,15 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
           </div>
         </div>
         {showFilters && (
-          <div className="flex flex-wrap items-center gap-2 pb-3">
-            <div role="radiogroup" aria-label="Remote" className="flex h-8 rounded-lg border border-border bg-surface p-0.5 shadow-card">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border py-3">
+            <div role="radiogroup" aria-label="Remote" className="flex h-8 items-center rounded-lg border border-border bg-surface p-0.5 shadow-card">
               {(["any", "remote", "onsite"] as const).map((v) => (
                 <button
                   key={v}
                   role="radio"
                   aria-checked={f.remote === v}
                   onClick={() => set("remote", v)}
-                  className={cn("rounded-md px-2.5 text-[13px] capitalize", f.remote === v ? "bg-muted font-medium text-fg" : "text-fg-muted hover:text-fg")}
+                  className={cn("h-full rounded-md px-2.5 text-[13px]", f.remote === v ? "bg-muted font-medium text-fg" : "text-fg-muted hover:text-fg")}
                 >
                   {v === "any" ? "Any" : v === "remote" ? "Remote" : "On-site"}
                 </button>
