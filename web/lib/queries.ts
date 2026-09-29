@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "./db";
 import type { EvalReport, FeedbackAction, Preferences, RunCounts, RunError } from "./db/schema";
+import { companyKey, type Salary } from "./format";
 
 export type JobListItem = {
   id: number;
@@ -21,7 +22,13 @@ export type JobListItem = {
   missingSkills: string[];
   model: string | null;
   lastAction: FeedbackAction | null;
+  companyKey: string;
+  salary: Salary | null;
+  badges: JobBadge[];
+  closedAt: string | null;
 };
+
+export type JobBadge = "updated" | "reopened" | "salary_up" | "salary_down";
 
 const rows = <T,>(r: unknown) => r as T[];
 
@@ -30,6 +37,32 @@ const CURRENT_SCORE = sql`
   FROM scores s
   WHERE s.profile_version = (SELECT COALESCE(MAX(version), 0) FROM profile)
   ORDER BY s.job_id, s.created_at DESC, s.id DESC`;
+
+const safeNum = (e: string) => `CASE WHEN (${e}) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (${e})::numeric END`;
+
+export const SALARY_JSON = sql.raw(`CASE
+  WHEN j.salary_min IS NOT NULL THEN json_build_object('kind','actual','low',j.salary_min,'high',j.salary_max,'currency',COALESCE(j.salary_currency,'INR'))
+  WHEN se.job_id IS NOT NULL THEN json_build_object('kind','estimate','low',se.low,'high',se.high,'currency',se.currency,'confidence',se.confidence,'n',se.n_comparables,'basis',se.basis,'model',se.model)
+END AS salary`);
+
+const salNew = `COALESCE(${safeNum("e.detail->'new'->>'max'")}, ${safeNum("e.detail->'new'->>'min'")}, ${safeNum("e.detail->'to'->>'salary_max'")}, 0)`;
+const salOld = `COALESCE(${safeNum("e.detail->'old'->>'max'")}, ${safeNum("e.detail->'old'->>'min'")}, ${safeNum("e.detail->'from'->>'salary_max'")}, 0)`;
+
+export const BADGES_SQL = sql.raw(`ARRAY(
+  SELECT DISTINCT CASE
+    WHEN e.kind = 'changed' THEN 'updated'
+    WHEN e.kind = 'reopened' THEN 'reopened'
+    WHEN e.detail->>'direction' = 'up' OR ${salNew} > ${salOld} THEN 'salary_up'
+    ELSE 'salary_down' END
+  FROM job_events e
+  WHERE e.job_id = j.id AND e.at > now() - interval '14 days' AND e.kind IN ('changed','reopened','salary_changed')
+) AS badges`);
+
+export const COMPANY_KEY_SQL = sql.raw(`COALESCE(
+  (SELECT k.company_key FROM company_stats k WHERE k.company_id = j.company_id LIMIT 1),
+  (SELECT k.company_key FROM company_stats k WHERE lower(k.company_name) = lower(j.company_name) LIMIT 1),
+  trim(both '-' from regexp_replace(lower(j.company_name), '[^a-z0-9]+', '-', 'g'))
+) AS company_key`);
 
 const LAST_ACTION = sql`
   SELECT DISTINCT ON (job_id) job_id, action, at FROM feedback ORDER BY job_id, at DESC, id DESC`;
@@ -60,6 +93,10 @@ type RawJob = {
   missing_skills: string[] | null;
   model: string | null;
   last_action: FeedbackAction | null;
+  salary?: Salary | null;
+  badges?: JobBadge[] | null;
+  closed_at?: Date | string | null;
+  company_key?: string | null;
 };
 
 const iso = (d: Date | string | null) => (d == null ? null : new Date(d).toISOString());
@@ -83,6 +120,10 @@ function mapJob(r: RawJob): JobListItem {
     missingSkills: r.missing_skills ?? [],
     model: r.model,
     lastAction: r.last_action,
+    companyKey: r.company_key ?? companyKey(r.company_name),
+    salary: r.salary ? { ...r.salary, low: Number(r.salary.low), high: r.salary.high == null ? null : Number(r.salary.high) } : null,
+    badges: r.badges ?? [],
+    closedAt: iso(r.closed_at ?? null),
   };
 }
 
@@ -90,17 +131,18 @@ export async function getInbox(): Promise<JobListItem[]> {
   const r = await db.execute(sql`
     WITH cs AS (${CURRENT_SCORE}), la AS (${LAST_ACTION})
     SELECT j.id, j.title, j.company_name, j.url, j.location, j.remote, j.seniority, j.source, j.posted_at, j.first_seen_at,
-      cs.fit_prob, cs.final_score, cs.reasons, cs.missing_skills, cs.model, la.action AS last_action
+      cs.fit_prob, cs.final_score, cs.reasons, cs.missing_skills, cs.model, la.action AS last_action, ${SALARY_JSON}, ${BADGES_SQL}, ${COMPANY_KEY_SQL}
     FROM jobs j
     JOIN cs ON cs.job_id = j.id
     LEFT JOIN la ON la.job_id = j.id
+    LEFT JOIN salary_estimates se ON se.job_id = j.id
     WHERE j.closed_at IS NULL AND j.is_canonical AND la.action IS NULL
     ORDER BY cs.final_score DESC NULLS LAST
     LIMIT 300`);
   return rows<RawJob>(r).map(mapJob);
 }
 
-export async function searchJobs(q: string): Promise<JobListItem[]> {
+export async function searchJobsLike(q: string): Promise<JobListItem[]> {
   const like = `%${q}%`;
   const r = await db.execute(sql`
     WITH cs AS (${CURRENT_SCORE}), la AS (${LAST_ACTION})
@@ -122,7 +164,6 @@ export type JobDetail = JobListItem & {
   salaryMin: number | null;
   salaryMax: number | null;
   salaryCurrency: string | null;
-  closedAt: string | null;
   dedupGroupId: number | null;
   embedSim: number | null;
   fitScore: number | null;
@@ -138,10 +179,11 @@ export async function getJob(id: number): Promise<JobDetail | null> {
   const r = await db.execute(sql`
     WITH cs AS (${CURRENT_SCORE}), la AS (${LAST_ACTION})
     SELECT j.*, cs.fit_prob, cs.final_score, cs.reasons, cs.missing_skills, cs.model, cs.embed_sim, cs.fit_score, cs.seniority_match,
-      cs.apply_prob, cs.latency_ms, cs.seniority AS score_seniority, cs.profile_version, cs.created_at AS scored_at, la.action AS last_action
+      cs.apply_prob, cs.latency_ms, cs.seniority AS score_seniority, cs.profile_version, cs.created_at AS scored_at, la.action AS last_action, ${SALARY_JSON}, ${BADGES_SQL}, ${COMPANY_KEY_SQL}, ${COMPANY_KEY_SQL}
     FROM jobs j
     LEFT JOIN cs ON cs.job_id = j.id
     LEFT JOIN la ON la.job_id = j.id
+    LEFT JOIN salary_estimates se ON se.job_id = j.id
     WHERE j.id = ${id}`);
   const x = rows<Record<string, unknown>>(r)[0];
   if (!x) return null;
@@ -210,7 +252,7 @@ export async function getTracker(): Promise<TrackerCard[]> {
     st AS (SELECT DISTINCT ON (job_id) job_id, action, at FROM feedback
            WHERE action IN ('saved','applied','interview','offer','rejected') ORDER BY job_id, at DESC, id DESC)
     SELECT j.id, j.title, j.company_name, j.url, j.location, j.remote, j.seniority, j.source, j.posted_at, j.first_seen_at,
-      cs.fit_prob, cs.final_score, cs.reasons, cs.missing_skills, cs.model, st.action AS last_action, st.at AS moved_at
+      cs.fit_prob, cs.final_score, cs.reasons, cs.missing_skills, cs.model, st.action AS last_action, st.at AS moved_at, j.closed_at, ${COMPANY_KEY_SQL}
     FROM st JOIN jobs j ON j.id = st.job_id LEFT JOIN cs ON cs.job_id = j.id
     ORDER BY st.at DESC`);
   return rows<RawJob & { moved_at: Date }>(r).map((x) => ({ ...mapJob(x), stage: x.last_action as TrackerStage, movedAt: iso(x.moved_at)! }));
@@ -244,12 +286,12 @@ export async function getLabelQueue(): Promise<{ queue: LabelItem[]; labeled: nu
   };
 }
 
-export type RunRow = { id: number; startedAt: string; finishedAt: string | null; status: string; counts: RunCounts; errors: RunError[]; costUsd: number };
+export type RunRow = { id: number; startedAt: string; finishedAt: string | null; status: string; counts: RunCounts; timings: { stage: string; s: number }[]; errors: RunError[]; costUsd: number };
 
 export async function getRuns(limit = 30): Promise<RunRow[]> {
   const r = await db.execute(sql`SELECT * FROM runs ORDER BY started_at DESC LIMIT ${limit}`);
   return rows<{ id: string; started_at: Date; finished_at: Date | null; status: string; counts: RunCounts; errors: RunError[]; cost_usd: string }>(r)
-    .map((x) => ({ id: Number(x.id), startedAt: iso(x.started_at)!, finishedAt: iso(x.finished_at), status: x.status, counts: normalizeCounts(x.counts), errors: normalizeErrors(x.errors), costUsd: Number(x.cost_usd) }))
+    .map((x) => ({ id: Number(x.id), startedAt: iso(x.started_at)!, finishedAt: iso(x.finished_at), status: x.status, counts: normalizeCounts(x.counts), timings: stageTimings(x.counts), errors: normalizeErrors(x.errors), costUsd: Number(x.cost_usd) }))
     .reverse();
 }
 
@@ -271,7 +313,31 @@ function normalizeCounts(raw: unknown): RunCounts {
     filtered: num(c.filtered) ?? num(c.filtered_in),
     scored: num(c.scored),
     notified: num(c.notified),
+    versions: num(c.versions) ?? num(sub(c.tracking, "versions")),
+    events: num(c.events) ?? sumOf(c.tracking, ["opened", "changed", "closed", "reopened", "salary_changed"]),
+    salary_estimates: num(c.salary_estimates) ?? num(sub(c.salary, "estimated")),
+    company_stats: num(c.company_stats) ?? num(sub(c.company_stats, "rows")),
+    skill_gaps: num(c.skill_gaps) ?? num(sub(c.skill_gaps, "skills")),
+    reminders_sent: num(c.reminders_sent) ?? num(sub(c.reminders_sent, "sent")),
   };
+}
+
+function sub(v: unknown, k: string): unknown {
+  return v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
+}
+
+function sumOf(v: unknown, keys: string[]): number | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const vals = keys.map((k) => (v as Record<string, unknown>)[k]).filter((x): x is number => typeof x === "number");
+  return vals.length ? vals.reduce((a, b) => a + b, 0) : undefined;
+}
+
+export function stageTimings(raw: unknown): { stage: string; s: number }[] {
+  const c = (raw ?? {}) as Record<string, unknown>;
+  return Object.entries(c)
+    .filter(([k, v]) => k.endsWith("_s") && typeof v === "number" && k !== "duration_s")
+    .map(([k, v]) => ({ stage: k.slice(0, -2).replace(/_/g, " "), s: v as number }))
+    .sort((a, b) => b.s - a.s);
 }
 
 function normalizeErrors(raw: unknown): RunError[] {

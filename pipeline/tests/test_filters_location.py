@@ -25,3 +25,23 @@ def job(location: str, remote: bool = True, description: str = "") -> FilterJob:
 def test_location_is_india_or_truly_global(location, description, expected):
     remote = location != "San Francisco" and location != "Bengaluru"
     assert location_ok(job(location, remote, description), Preferences()) is expected
+
+
+def test_mark_workable_flags_open_jobs(db):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+    from scout.db.models import Job
+    from scout.pipeline import mark_workable
+
+    engine = create_engine(db)
+    db_session = Session(engine)
+    rows = [("Remote - US", True), ("Bengaluru", False), ("Remote, India", True)]
+    for i, (loc, remote) in enumerate(rows):
+        db_session.add(Job(source="t", external_id=str(i), company_name="Acme", url="u", title="Backend Engineer",
+                           location=loc, remote=remote, content_hash=str(i)))
+    db_session.commit()
+    assert mark_workable(db_session) == 2
+    flags = {j.location: j.workable_from_india for j in db_session.query(Job).all()}
+    db_session.close()
+    engine.dispose()
+    assert flags == {"Remote - US": False, "Bengaluru": True, "Remote, India": True}

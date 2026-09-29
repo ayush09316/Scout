@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
-import { feedback, FEEDBACK_ACTIONS, jobs, type FeedbackAction } from "@/lib/db/schema";
+import { feedback, FEEDBACK_ACTIONS, jobs, reminders, type FeedbackAction } from "@/lib/db/schema";
+import { dismissReminderRow, snoozeReminderRow } from "@/lib/reminders";
 import { eq } from "drizzle-orm";
 
 type InlineButton = { text: string; callback_data?: string; url?: string };
@@ -40,6 +41,27 @@ export async function POST(req: NextRequest) {
   const update = (await req.json().catch(() => null)) as Update | null;
   const cq = update?.callback_query;
   if (!cq?.data) return NextResponse.json({ ok: true });
+
+  const rm = /^rm:(\d+):(done|snooze)$/.exec(cq.data);
+  if (rm) {
+    const id = Number(rm[1]);
+    const [row] = await db.select({ id: reminders.id }).from(reminders).where(eq(reminders.id, id)).limit(1);
+    if (!row) {
+      await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "Reminder not found" });
+      return NextResponse.json({ ok: true });
+    }
+    if (rm[2] === "done") await dismissReminderRow(id);
+    else await snoozeReminderRow(id, 3);
+    await tg("answerCallbackQuery", { callback_query_id: cq.id, text: rm[2] === "done" ? "Marked done ✓" : "Snoozed for 3 days" });
+    if (cq.message) {
+      const rows = cq.message.reply_markup?.inline_keyboard ?? [];
+      const next = rows
+        .map((r) => r.filter((b) => !(b.callback_data && b.callback_data.startsWith(`rm:${id}:`))))
+        .filter((r) => r.length);
+      await tg("editMessageReplyMarkup", { chat_id: cq.message.chat.id, message_id: cq.message.message_id, reply_markup: { inline_keyboard: next } });
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   const m = /^fb:(\d+):([a-z]+)$/.exec(cq.data);
   if (!m || !FEEDBACK_ACTIONS.includes(m[2] as FeedbackAction)) {

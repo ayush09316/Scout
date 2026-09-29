@@ -120,3 +120,27 @@ body {
 .prose-job a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .prose-job > :first-child { margin-top: 0; }
 .prose-job mark { background: var(--good-soft); color: var(--good); border-radius: 3px; padding: 0 2px; }
+
+.prose-resume h1 { font-size: 1.15rem; font-weight: 600; color: var(--fg); margin-bottom: 0.25rem; }
+
+.resume-print { font-size: 10.5pt; line-height: 1.45; color: #111; font-family: var(--font-sans); }
+.resume-print h1 { font-size: 18pt; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 2pt; }
+.resume-print h1 + p { color: #444; margin-top: 0; }
+.resume-print h2 { font-size: 10pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #222; border-bottom: 0.75pt solid #ccc; padding-bottom: 2pt; margin: 12pt 0 5pt; break-after: avoid; }
+.resume-print h3 { font-size: 10.5pt; font-weight: 600; margin: 8pt 0 2pt; }
+.resume-print p { margin: 3pt 0; }
+.resume-print ul { list-style: disc; padding-left: 14pt; margin: 3pt 0; }
+.resume-print li { margin: 1.5pt 0; break-inside: avoid; }
+.resume-print strong { font-weight: 600; color: #000; }
+.resume-print a { color: #000; text-decoration: none; }
+
+@media print {
+  @page { size: A4; margin: 14mm 14mm 12mm; }
+  html, body { background: #fff !important; color: #000 !important; }
+  .no-print { display: none !important; }
+}
+.prose-chat table { width: 100%; font-size: 12px; border-collapse: collapse; margin: 0.5rem 0; display: block; overflow-x: auto; }
+.prose-chat th, .prose-chat td { border-bottom: 1px solid var(--border); padding: 4px 8px; text-align: left; white-space: nowrap; }
+.prose-chat th { color: var(--fg-subtle); font-weight: 500; }
+.prose-chat td { color: var(--fg-muted); }
+.prose-chat code { font-family: var(--font-mono); font-size: 0.85em; background: var(--muted); border-radius: 4px; padding: 0 3px; }

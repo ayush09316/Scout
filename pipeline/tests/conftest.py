@@ -15,6 +15,7 @@ from scout.config import get_settings  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SCHEMA = Path(__file__).resolve().parents[2] / "schema.sql"
+SCHEMA_V2 = Path(__file__).resolve().parents[2] / "schema_v2.sql"
 
 
 def load_fixture(name: str):
@@ -35,6 +36,8 @@ def db_url() -> str:
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
         conn.exec_driver_sql(SCHEMA.read_text())
+        conn.exec_driver_sql(SCHEMA_V2.read_text())
+        conn.exec_driver_sql(SCHEMA_V2.with_name("schema_v3.sql").read_text())
     engine.dispose()
     return url
 
@@ -44,7 +47,8 @@ def db(db_url):
     engine = create_engine(db_url)
     with engine.begin() as conn:
         conn.execute(text(
-            "TRUNCATE settings, eval_reports, cover_notes, labels, runs, feedback, scores, profile, jobs, companies RESTART IDENTITY CASCADE"
+            "TRUNCATE chat_messages, reminders, interview_packs, resume_variants, skill_gaps, company_stats, salary_estimates, "
+            "job_events, job_versions, settings, eval_reports, cover_notes, labels, runs, feedback, scores, profile, jobs, companies RESTART IDENTITY CASCADE"
         ))
     engine.dispose()
     return db_url

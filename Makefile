@@ -2,7 +2,7 @@ PY := pipeline/venv/bin/python
 SCOUT := pipeline/venv/bin/scout
 PYTHON311 ?= python3.11
 
-.PHONY: up down venv migrate run test eval seed sync profile tune
+.PHONY: up down venv migrate run test eval seed sync profile tune backfill salary search
 
 up:
 	docker compose up -d --wait db
@@ -37,3 +37,12 @@ tune:
 
 seed:
 	$(SCOUT) seed-demo
+
+backfill:
+	$(SCOUT) backfill versions
+
+salary:
+	$(SCOUT) salary --all
+
+search:
+	$(SCOUT) search "$(Q)"

@@ -19,10 +19,20 @@ import { useHotkeys } from "@/lib/hotkeys";
 import type { JobListItem } from "@/lib/queries";
 import { handleResult } from "@/lib/toast";
 import { cn, formatDateTime, timeAgo } from "@/lib/utils";
+import { MIN_SALARY_OPTIONS, places } from "@/lib/places";
+import { salaryTop } from "@/lib/format";
+import { SalaryBadge } from "@/components/salary";
+import { ChangeBadges } from "@/components/change-badges";
 
 type Tab = "top" | "maybe" | "all";
-type Filters = { remote: "any" | "remote" | "onsite"; location: string; seniority: string; minScore: number; source: string; sort: "score" | "newest" };
-const DEFAULT: Filters = { remote: "any", location: "", seniority: "", minScore: 0, source: "", sort: "score" };
+type Filters = { remote: "any" | "remote" | "onsite"; location: string; seniority: string; minScore: number; source: string; minSalary: number; sort: "score" | "newest" };
+const DEFAULT: Filters = { remote: "any", location: "", seniority: "", minScore: 0, source: "", minSalary: 0, sort: "score" };
+
+const meetsSalary = (j: JobListItem, lpa: number) => {
+  if (!lpa) return true;
+  if (!j.salary) return false;
+  return (salaryTop(j.salary) ?? 0) >= lpa * 100000;
+};
 
 const tabs: { id: Tab; label: string; hint: string }[] = [
   { id: "top", label: "Top", hint: "≥ 70% fit" },
@@ -35,15 +45,6 @@ const inTab = (j: JobListItem, t: Tab) => {
   return t === "all" ? true : t === "top" ? p >= 0.7 : p >= 0.4 && p < 0.7;
 };
 
-
-const CITIES = ["Bengaluru", "Hyderabad", "Pune", "Mumbai", "Chennai", "Gurugram", "Noida", "Delhi", "Kolkata", "Ahmedabad"];
-
-function places(location: string | null, remote: boolean): string[] {
-  const l = (location ?? "").toLowerCase();
-  const out = CITIES.filter((c) => l.includes(c.toLowerCase()) || (c === "Bengaluru" && (l.includes("bangalore") || l.includes("blr"))));
-  if (remote || l.includes("remote")) out.push(l.includes("india") || out.length ? "Remote · India" : "Remote · Global");
-  return out.length ? out : [location ?? "Other"];
-}
 
 export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
   const router = useRouter();
@@ -67,7 +68,8 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
         (!f.location || places(j.location, j.remote).includes(f.location)) &&
         (!f.seniority || j.seniority === f.seniority) &&
         (!f.source || j.source === f.source) &&
-        (j.fitProb ?? 0) * 100 >= f.minScore,
+        (j.fitProb ?? 0) * 100 >= f.minScore &&
+        meetsSalary(j, f.minSalary),
     );
     if (f.sort === "newest") out.sort((a, b) => new Date(b.postedAt ?? b.firstSeenAt).getTime() - new Date(a.postedAt ?? a.firstSeenAt).getTime());
     return out;
@@ -187,6 +189,7 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
             <Select ariaLabel="Location" value={f.location} onChange={(v) => set("location", v)} options={[{ value: "", label: "All locations" }, ...options.locations.map((l) => ({ value: l, label: l }))]} />
             <Select ariaLabel="Seniority" value={f.seniority} onChange={(v) => set("seniority", v)} options={[{ value: "", label: "Any seniority" }, ...options.seniority.map((l) => ({ value: l, label: l[0].toUpperCase() + l.slice(1) }))]} />
             <Select ariaLabel="Minimum fit" value={String(f.minScore)} onChange={(v) => set("minScore", Number(v))} options={[0, 50, 60, 70, 80, 90].map((v) => ({ value: String(v), label: v === 0 ? "Any fit" : `≥ ${v}% fit` }))} />
+            <Select ariaLabel="Min salary" value={String(f.minSalary)} onChange={(v) => set("minSalary", Number(v))} options={MIN_SALARY_OPTIONS} />
             <Select ariaLabel="Source" value={f.source} onChange={(v) => set("source", v)} options={[{ value: "", label: "All sources" }, ...options.sources.map((l) => ({ value: l, label: l[0].toUpperCase() + l.slice(1) }))]} />
             <Select ariaLabel="Sort" value={f.sort} onChange={(v) => set("sort", v as Filters["sort"])} options={[{ value: "score", label: "Best match" }, { value: "newest", label: "Newest" }]} className="sm:hidden" />
             {activeFilters > 0 && (
@@ -266,7 +269,9 @@ function JobRow({ job, idx, selected, onSelect, onAct }: { job: JobListItem; idx
                 {job.title}
               </Link>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-fg-muted">
-                <span className="font-medium text-fg">{job.companyName}</span>
+                <Link href={`/company/${job.companyKey}`} className="relative z-10 font-medium text-fg hover:text-accent hover:underline">
+                  {job.companyName}
+                </Link>
                 <span aria-hidden className="text-fg-subtle">·</span>
                 <span className="text-fg-subtle" title={formatDateTime(posted)}>
                   {timeAgo(posted)} ago
@@ -281,8 +286,10 @@ function JobRow({ job, idx, selected, onSelect, onAct }: { job: JobListItem; idx
             </div>
             <ScoreRing value={job.fitProb} size={44} />
           </div>
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             <LocationChips location={job.location} remote={job.remote} />
+            <SalaryBadge salary={job.salary} />
+            <ChangeBadges badges={job.badges} />
           </div>
           <div className="mt-2 flex items-end gap-3">
             <div className="min-w-0 flex-1">

@@ -5,6 +5,7 @@ from datetime import datetime
 from scout.normalize.experience import parse_experience, seniority_from_title
 from scout.normalize.location import Location, canonicalize_location
 from scout.normalize.text import html_to_md, normalize_company, normalize_title
+from scout.salary.parse import parse_salary_text
 from scout.sources.base import RawJob
 
 MAX_DESCRIPTION = 20000
@@ -43,6 +44,11 @@ def normalize_job(raw: RawJob) -> NormJob:
     description = html_to_md(raw.description)[:MAX_DESCRIPTION]
     loc = canonicalize_location(raw.location, raw.remote, raw.title)
     min_exp, max_exp = parse_experience(f"{raw.title}\n{description}")
+    salary = (raw.salary_min, raw.salary_max, raw.salary_currency)
+    if raw.salary_min is None and raw.salary_max is None:
+        found = parse_salary_text(description)
+        if found:
+            salary = found
     return NormJob(
         source=raw.source,
         external_id=raw.external_id[:300],
@@ -55,9 +61,9 @@ def normalize_job(raw: RawJob) -> NormJob:
         seniority=seniority_from_title(raw.title),
         min_exp=min_exp,
         max_exp=max_exp,
-        salary_min=raw.salary_min,
-        salary_max=raw.salary_max,
-        salary_currency=raw.salary_currency,
+        salary_min=salary[0],
+        salary_max=salary[1],
+        salary_currency=salary[2],
         description_md=description,
         posted_at=raw.posted_at,
         content_hash=content_hash(raw.company_name, raw.title, loc.display, description),

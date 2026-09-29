@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { Clock, GripVertical } from "lucide-react";
+import { Clock, GripVertical, TriangleAlert } from "lucide-react";
 import { CompanyLogo } from "@/components/company-logo";
 import { addFeedback } from "@/lib/actions";
 import type { TrackerCard, TrackerStage } from "@/lib/queries";
 import { handleResult } from "@/lib/toast";
-import { cn, daysSince, pct } from "@/lib/utils";
+import { cn, daysSince, formatDateTime, pct } from "@/lib/utils";
 
 const COLUMNS: { id: TrackerStage; label: string; dot: string }[] = [
   { id: "saved", label: "Saved", dot: "bg-fg-subtle" },
@@ -115,6 +115,12 @@ function CardView({ card, overlay }: { card: TrackerCard; overlay?: boolean }) {
             {card.title}
           </Link>
           <p className="mt-0.5 truncate text-xs text-fg-muted">{card.companyName}</p>
+          {card.closedAt && card.stage !== "rejected" && card.stage !== "offer" && (
+            <p data-testid="closed-warning" className="mt-1.5 inline-flex items-center gap-1 rounded bg-bad-soft px-1.5 py-0.5 text-[11px] font-medium text-bad" title={`Posting closed ${formatDateTime(card.closedAt)}`}>
+              <TriangleAlert className="size-3" aria-hidden />
+              Closed
+            </p>
+          )}
         </div>
         <GripVertical className="size-4 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
       </div>

@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Keyboard, Radar, Search } from "lucide-react";
-import { NAV } from "./nav-items";
+import { Ellipsis, Keyboard, Radar, Search } from "lucide-react";
+import { MOBILE_PRIMARY, NAV, NAV_GROUPS } from "./nav-items";
+import { RemindersBell } from "./reminders-bell";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import type { ReminderItem } from "@/lib/intel";
 import { ThemeToggle } from "./theme-toggle";
 import { useUI } from "./ui-context";
 import { Kbd } from "./ui/kbd";
@@ -21,7 +24,7 @@ export function Logo() {
   );
 }
 
-export function AppShell({ children, counts, user }: { children: React.ReactNode; counts: { inbox: number; labeled: number }; user: string | null }) {
+export function AppShell({ children, counts, user, reminders }: { children: React.ReactNode; counts: { inbox: number; labeled: number }; user: string | null; reminders: ReminderItem[] }) {
   const pathname = usePathname();
   const router = useRouter();
   const { setPaletteOpen, setHelpOpen, demo } = useUI();
@@ -37,13 +40,16 @@ export function AppShell({ children, counts, user }: { children: React.ReactNode
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[232px_1fr]">
       <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-surface-2/60 px-3 py-4 md:flex">
-        <div className="flex items-center justify-between px-2">
+        <div className="flex items-center justify-between gap-1 pl-2">
           <Logo />
-          {demo && (
-            <span className="rounded-md bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-warn" title="Read-only public demo">
-              Demo
-            </span>
-          )}
+          <div className="flex items-center gap-1">
+            {demo && (
+              <span className="rounded-md bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-warn" title="Read-only public demo">
+                Demo
+              </span>
+            )}
+            <RemindersBell items={reminders} className="size-8" />
+          </div>
         </div>
         <button
           onClick={() => setPaletteOpen(true)}
@@ -53,26 +59,31 @@ export function AppShell({ children, counts, user }: { children: React.ReactNode
           <span className="flex-1 text-left">Search jobs…</span>
           <Kbd>⌘K</Kbd>
         </button>
-        <nav aria-label="Main" className="mt-4 flex flex-col gap-0.5">
-          {NAV.map((n) => {
-            const active = pathname.startsWith(n.href);
-            const b = badge(n.href);
-            return (
-              <Link
-                key={n.href}
-                href={n.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors",
-                  active ? "bg-surface text-fg shadow-card ring-1 ring-border" : "text-fg-muted hover:bg-muted hover:text-fg",
-                )}
-              >
-                <n.icon className={cn("size-4", active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")} aria-hidden />
-                <span className="flex-1">{n.label}</span>
-                {b != null && b !== 0 && <span className="font-mono text-[11px] tabular-nums text-fg-subtle">{b}</span>}
-              </Link>
-            );
-          })}
+        <nav aria-label="Main" className="mt-4 flex flex-col gap-4 overflow-y-auto">
+          {NAV_GROUPS.map((g) => (
+            <div key={g} className="flex flex-col gap-0.5">
+              <p className="px-2.5 pb-1 text-[11px] font-medium text-fg-subtle">{g}</p>
+              {NAV.filter((n) => n.group === g).map((n) => {
+                const active = pathname.startsWith(n.href);
+                const b = badge(n.href);
+                return (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "group flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors",
+                      active ? "bg-surface text-fg shadow-card ring-1 ring-border" : "text-fg-muted hover:bg-muted hover:text-fg",
+                    )}
+                  >
+                    <n.icon className={cn("size-4", active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")} aria-hidden />
+                    <span className="flex-1">{n.label}</span>
+                    {b != null && b !== 0 && <span className="font-mono text-[11px] tabular-nums text-fg-subtle">{b}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className="mt-auto flex flex-col gap-3 px-1">
           <button onClick={() => setHelpOpen(true)} className="flex h-8 items-center gap-2 rounded-md px-1.5 text-xs text-fg-subtle hover:text-fg-muted">
@@ -89,6 +100,7 @@ export function AppShell({ children, counts, user }: { children: React.ReactNode
         <Logo />
         <div className="flex items-center gap-1">
           {demo && <span className="mr-1 rounded-md bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-warn">Demo</span>}
+          <RemindersBell items={reminders} />
           <button onClick={() => setPaletteOpen(true)} aria-label="Search" className="inline-flex size-9 items-center justify-center rounded-lg text-fg-muted hover:bg-muted">
             <Search className="size-4" />
           </button>
@@ -102,7 +114,7 @@ export function AppShell({ children, counts, user }: { children: React.ReactNode
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
-        {NAV.map((n) => {
+        {NAV.filter((n) => (MOBILE_PRIMARY as readonly string[]).includes(n.href)).map((n) => {
           const active = pathname.startsWith(n.href);
           return (
             <Link
@@ -116,6 +128,29 @@ export function AppShell({ children, counts, user }: { children: React.ReactNode
             </Link>
           );
         })}
+        <Popover>
+          <PopoverTrigger
+            className={cn(
+              "flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium outline-none",
+              NAV.some((n) => !(MOBILE_PRIMARY as readonly string[]).includes(n.href) && pathname.startsWith(n.href)) ? "text-accent" : "text-fg-subtle",
+            )}
+          >
+            <Ellipsis className="size-5" aria-hidden />
+            More
+          </PopoverTrigger>
+          <PopoverContent side="top" className="w-52 p-1">
+            {NAV.filter((n) => !(MOBILE_PRIMARY as readonly string[]).includes(n.href)).map((n) => (
+              <Link
+                key={n.href}
+                href={n.href}
+                className={cn("flex h-10 items-center gap-2.5 rounded-lg px-3 text-sm", pathname.startsWith(n.href) ? "bg-muted text-fg" : "text-fg-muted hover:bg-muted hover:text-fg")}
+              >
+                <n.icon className="size-4" aria-hidden />
+                {n.label}
+              </Link>
+            ))}
+          </PopoverContent>
+        </Popover>
       </nav>
     </div>
   );

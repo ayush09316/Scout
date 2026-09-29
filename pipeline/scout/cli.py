@@ -15,6 +15,8 @@ companies_app = typer.Typer(no_args_is_help=True)
 profile_app = typer.Typer(no_args_is_help=True)
 app.add_typer(companies_app, name="companies")
 app.add_typer(profile_app, name="profile")
+backfill_app = typer.Typer(no_args_is_help=True)
+app.add_typer(backfill_app, name="backfill")
 console = Console()
 
 
@@ -44,6 +46,9 @@ def run(database_url: str | None = typer.Option(None, envvar="DATABASE_URL")) ->
                 "fetch_s", "embed_s", "dedup_s", "score_s", "duration_s"):
         if key in counts:
             table.add_row(key, str(counts[key]))
+    for key in ("tracking", "salary", "company_stats", "skill_gaps", "reminders", "reminders_sent"):
+        if counts.get(key) is not None:
+            table.add_row(key, json.dumps(counts[key], default=str))
     table.add_row("cost_usd", f"{result['cost_usd']:.6f}")
     table.add_row("errors", str(len(result["errors"])))
     console.print(table)
@@ -199,6 +204,51 @@ def cover(job_id: int, save: bool = typer.Option(True, "--save/--no-save")) -> N
         if save:
             save_cover(session, job, profile, body, model)
     console.print(f"[dim]{model}[/dim]\n{body}")
+
+
+@backfill_app.command("versions")
+def backfill_versions_cmd(database_url: str | None = typer.Option(None, envvar="DATABASE_URL")) -> None:
+    from scout.db.session import session_scope
+    from scout.tracking import backfill_versions
+
+    with session_scope(database_url) as session:
+        created = backfill_versions(session)
+    console.print(f"created {created} initial versions (no events)")
+
+
+@app.command()
+def salary(
+    all_jobs: bool = typer.Option(False, "--all"),
+    database_url: str | None = typer.Option(None, envvar="DATABASE_URL"),
+) -> None:
+    from scout.db.session import session_scope
+    from scout.profile import latest_profile
+    from scout.salary import estimate_salaries
+
+    with session_scope(database_url) as session:
+        profile = latest_profile(session)
+        result = estimate_salaries(session, profile.version if profile else None, None, all_jobs=all_jobs)
+    console.print_json(json.dumps(result))
+
+
+@app.command()
+def search(
+    query: str,
+    limit: int = typer.Option(10, "--limit", "-n"),
+    database_url: str | None = typer.Option(None, envvar="DATABASE_URL"),
+) -> None:
+    from scout.db.session import session_scope
+    from scout.search import hybrid_search
+
+    with session_scope(database_url) as session:
+        hits = hybrid_search(session, query, limit)
+    table = Table(title=f"{len(hits)} results for {query!r}")
+    for column in ("#", "id", "rrf", "fts", "vec", "title", "company", "location"):
+        table.add_column(column)
+    for rank, hit in enumerate(hits, 1):
+        table.add_row(str(rank), str(hit.job_id), f"{hit.score:.4f}", str(hit.fts_rank or "-"), str(hit.vector_rank or "-"),
+                      hit.title[:60], hit.company_name[:25], (hit.location or "")[:30])
+    console.print(table)
 
 
 if __name__ == "__main__":

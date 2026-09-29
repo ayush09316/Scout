@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, Briefcase, CircleCheck, CircleDashed, Clock, ExternalLink, Layers, Wallet } from "lucide-react";
+import { ArrowLeft, Briefcase, CircleCheck, CircleDashed, Clock, ExternalLink, Layers } from "lucide-react";
 import { CompanyLogo } from "@/components/company-logo";
 import { ScoreRing } from "@/components/score-ring";
 import { LocationChips } from "@/components/job-chips";
@@ -11,6 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
 import { getCoverNotes, getDuplicates, getFeedback, getJob, getProfile } from "@/lib/queries";
+import { getCompanyIntel, getJobHistory, getLatestPack, getLatestVariant } from "@/lib/intel";
+import { coverage as kwCoverage, inventedKeywords, jobKeywords } from "@/lib/tailor-core";
+import { SalaryBadge } from "@/components/salary";
+import { ChangeBadges } from "@/components/change-badges";
+import { CompanyCard } from "@/components/company-card";
+import { TailorDrawer } from "./tailor-drawer";
+import { PrepPack } from "./prep-pack";
+import { JobHistory } from "./history";
 import { cn, pct, timeAgo } from "@/lib/utils";
 import { JobActions } from "./job-actions";
 import { CoverNote } from "./cover-note";
@@ -23,17 +31,38 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 const actionLabel: Record<string, string> = { up: "Thumbs up", down: "Thumbs down", saved: "Saved", applied: "Applied", interview: "Interview", offer: "Offer", rejected: "Rejected" };
 const actionTone: Record<string, string> = { up: "bg-good", down: "bg-bad", saved: "bg-accent", applied: "bg-accent", interview: "bg-warn", offer: "bg-good", rejected: "bg-fg-subtle" };
 
-function money(n: number, cur: string | null) {
-  if (cur === "INR") return n >= 100000 ? `₹${(n / 100000).toFixed(n % 100000 ? 1 : 0)}L` : `₹${n.toLocaleString("en-IN")}`;
-  return `${cur ?? "$"}${Math.round(n / 1000)}k`;
-}
-
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
   if (!Number.isFinite(id)) notFound();
   const job = await getJob(id);
   if (!job) notFound();
-  const [fb, dups, note, prof] = await Promise.all([getFeedback(id), getDuplicates(id, job.dedupGroupId), getCoverNotes(id), getProfile()]);
+  const [fb, dups, note, prof, intel, history, variant, pack] = await Promise.all([
+    getFeedback(id),
+    getDuplicates(id, job.dedupGroupId),
+    getCoverNotes(id),
+    getProfile(),
+    getCompanyIntel(job.companyKey).catch(() => null),
+    getJobHistory(id),
+    getLatestVariant(id),
+    getLatestPack(id),
+  ]);
+  const stage = fb.find((f) => ["saved", "applied", "interview", "offer", "rejected"].includes(f.action))?.action ?? null;
+  const inInterview = stage === "interview";
+  const kws = jobKeywords(job.descriptionMd, job.title);
+  const savedVariant = variant && prof
+    ? { ...variant, missing: kws.filter((k) => !kwCoverage(prof.resumeMd, kws).evidenced.includes(k)), invented: inventedKeywords(prof.resumeMd, variant.bodyMd) }
+    : variant
+      ? { ...variant, missing: [], invented: [] }
+      : null;
+  const prep = <PrepPack jobId={job.id} initial={pack} autoGenerate={inInterview && !pack} />;
+  const historyCard = (
+    <JobHistory
+      events={history.events}
+      versions={history.versions}
+      current={{ title: job.title, location: job.location, salaryMin: job.salaryMin, salaryMax: job.salaryMax, descriptionMd: job.descriptionMd }}
+      currency={job.salaryCurrency ?? "INR"}
+    />
+  );
 
   const desc = job.descriptionMd.toLowerCase();
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -62,7 +91,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">{job.title}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted">
-            <span className="font-medium text-fg">{job.companyName}</span>
+            <Link href={`/company/${job.companyKey}`} className="font-medium text-fg hover:text-accent hover:underline">
+              {job.companyName}
+            </Link>
             <span aria-hidden className="text-fg-subtle">·</span>
             <span className="inline-flex items-center gap-1">
               <Clock className="size-3.5" aria-hidden />
@@ -80,21 +111,21 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
                 {job.minExp != null && ` · ${job.minExp}–${job.maxExp ?? "+"} yrs`}
               </Badge>
             )}
-            {job.salaryMin != null && (
-              <Badge tone="good">
-                <Wallet aria-hidden />
-                {money(job.salaryMin, job.salaryCurrency)}
-                {job.salaryMax ? `–${money(job.salaryMax, job.salaryCurrency)}` : "+"}
-              </Badge>
-            )}
+            <SalaryBadge salary={job.salary} />
             {job.closedAt && <Badge tone="bad">Closed</Badge>}
+            <ChangeBadges badges={job.badges} />
           </div>
         </div>
-        <JobActions jobId={job.id} url={job.url} lastAction={fb[0]?.action ?? null} />
+        <div className="flex flex-col gap-2 sm:items-end">
+          <JobActions jobId={job.id} url={job.url} lastAction={fb[0]?.action ?? null} />
+          <TailorDrawer jobId={job.id} original={prof?.resumeMd ?? null} initial={savedVariant} />
+        </div>
       </header>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="order-2 min-w-0 p-5 sm:p-7 lg:order-1">
+        <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
+        {inInterview && prep}
+        <Card className="min-w-0 p-5 sm:p-7">
           <article className="prose-job text-sm">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{job.descriptionMd || "_No description available._"}</ReactMarkdown>
           </article>
@@ -105,6 +136,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             </a>
           </div>
         </Card>
+        {!inInterview && prep}
+        {historyCard}
+        </div>
 
         <aside className="order-1 flex min-w-0 flex-col gap-4 lg:order-2" aria-label="Match insights">
           <Card>
@@ -205,6 +239,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               </div>
             </div>
           </Card>
+
+          {intel && <CompanyCard intel={intel} />}
 
           <CoverNote jobId={job.id} initial={note} />
 

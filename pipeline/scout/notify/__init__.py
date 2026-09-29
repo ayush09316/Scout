@@ -29,7 +29,16 @@ class Digest:
 class Notifier(Protocol):
     name: str
 
-    async def send(self, items: list[Digest]) -> int: ...
+    async def send(self, items: list[Digest], lines: list[str] | None = None) -> int: ...
+
+
+def reminder_keyboard(reminder_id: int) -> dict:
+    return {
+        "inline_keyboard": [[
+            {"text": "✅ Done", "callback_data": f"rm:{reminder_id}:done"},
+            {"text": "💤 Snooze", "callback_data": f"rm:{reminder_id}:snooze"},
+        ]]
+    }
 
 
 def keyboard(job_id: int) -> dict:
@@ -64,12 +73,20 @@ class TelegramNotifier:
             return False
         return True
 
-    async def send(self, items: list[Digest]) -> int:
-        if not items:
+    async def send_reminder(self, reminder_id: int, text: str) -> bool:
+        http = self.http or HttpClient()
+        return await self._post(http, {
+            "chat_id": self.chat_id, "text": html.escape(text[:3800]), "parse_mode": "HTML",
+            "disable_web_page_preview": True, "reply_markup": reminder_keyboard(reminder_id),
+        })
+
+    async def send(self, items: list[Digest], lines: list[str] | None = None) -> int:
+        if not items and not lines:
             return 0
         http = self.http or HttpClient()
         sent = 0
-        await self._post(http, {"chat_id": self.chat_id, "text": f"Scout: {len(items)} new matches today", "disable_notification": True})
+        header = "\n".join([f"Scout: {len(items)} new matches today", *(lines or [])])
+        await self._post(http, {"chat_id": self.chat_id, "text": header, "disable_notification": True})
         for rank, item in enumerate(items, 1):
             payload = {
                 "chat_id": self.chat_id,
@@ -89,7 +106,13 @@ class ConsoleNotifier:
     def __init__(self, console: Console | None = None) -> None:
         self.console = console or Console()
 
-    async def send(self, items: list[Digest]) -> int:
+    async def send_reminder(self, reminder_id: int, text: str) -> bool:
+        self.console.print(f"[bold]reminder {reminder_id}[/bold] (rm:{reminder_id}:done / rm:{reminder_id}:snooze)\n{text}")
+        return True
+
+    async def send(self, items: list[Digest], lines: list[str] | None = None) -> int:
+        for line in lines or []:
+            self.console.print(line)
         if not items:
             return 0
         table = Table(title="Scout top matches")

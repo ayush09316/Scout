@@ -1,8 +1,9 @@
 import asyncio
+import inspect
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import numpy as np
@@ -15,7 +16,7 @@ from scout.db.models import Company, Job, Profile, Run, Score
 from scout.db.session import get_setting, session_scope
 from scout.dedup import DedupItem, find_groups
 from scout.embed import get_embedder, job_text
-from scout.filters import FilterJob, Preferences, passes
+from scout.filters import FilterJob, Preferences, location_ok, passes
 from scout.http import HttpClient
 from scout.normalize import NormJob, normalize_job
 from scout.notify import Digest, Notifier, get_notifier
@@ -24,6 +25,10 @@ from scout.rank import DEFAULT_WEIGHTS, Calibrator, RankInput, final_score
 from scout.scoring import CostGuard, JobInput, ProfileInput, ScorerChain
 from scout.sources.ats import PARSERS as ATS_PARSERS
 from scout.sources import CompanyRef, FetchResult, Source, all_sources
+from scout.insights import compute_company_stats, refresh_skill_gaps
+from scout.reminders import create_reminders, digest_lines, send_due_reminders
+from scout.salary import estimate_salaries
+from scout.tracking import Snapshot, record_changes, record_opened, record_simple, snapshot_rows
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +43,7 @@ class RunContext:
     counts: dict[str, Any] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
+    filtered_ids: set[int] = field(default_factory=set)
 
 
 def utcnow() -> datetime:
@@ -85,34 +91,63 @@ UPDATABLE = ["company_id", "company_name", "url", "title", "location", "remote",
              "salary_min", "salary_max", "salary_currency", "description_md", "posted_at", "content_hash"]
 
 
+def track(session: Session, ctx: RunContext, label: str, fn, *args) -> dict[str, int]:
+    try:
+        with session.begin_nested():
+            return fn(session, *args)
+    except Exception as exc:
+        logger.exception("tracking %s failed", label)
+        ctx.errors.append(f"tracking {label}: {type(exc).__name__}: {exc}"[:300])
+        return {}
+
+
+def bump(ctx: RunContext, result: dict[str, int] | int, key: str | None = None) -> None:
+    tracking = ctx.counts.setdefault("tracking", {})
+    items = {key: result} if isinstance(result, int) else result
+    for name, value in items.items():
+        tracking[name] = tracking.get(name, 0) + value
+
+
 def upsert_jobs(session: Session, jobs: list[NormJob], ctx: RunContext) -> dict[str, set[int]]:
     now = utcnow()
-    existing: dict[tuple[str, str], tuple[int, str]] = {}
+    existing: dict[tuple[str, str], tuple[int, str, bool]] = {}
     for source in {j.source for j in jobs}:
-        rows = session.execute(select(Job.id, Job.external_id, Job.content_hash).where(Job.source == source))
-        for job_id, external_id, chash in rows:
-            existing[(source, external_id)] = (job_id, chash)
-    new_rows, changed, unchanged_ids = [], [], []
+        rows = session.execute(select(Job.id, Job.external_id, Job.content_hash, Job.closed_at).where(Job.source == source))
+        for job_id, external_id, chash, closed_at in rows:
+            existing[(source, external_id)] = (job_id, chash, closed_at is not None)
+    new_rows, changed, unchanged_ids, reopened = [], [], [], []
     for job in jobs:
         hit = existing.get((job.source, job.external_id))
         if hit is None:
             new_rows.append({**job.row(), "first_seen_at": now, "last_seen_at": now})
-        elif hit[1] != job.content_hash:
+            continue
+        if hit[2]:
+            reopened.append(hit[0])
+        if hit[1] != job.content_hash:
             changed.append({"b_id": hit[0], **{k: getattr(job, k) for k in UPDATABLE}})
         else:
             unchanged_ids.append(hit[0])
-    inserted = 0
+    inserted_ids: list[int] = []
     for start in range(0, len(new_rows), 500):
         chunk = new_rows[start:start + 500]
         stmt = insert(Job).values(chunk).on_conflict_do_nothing(index_elements=[Job.source, Job.external_id]).returning(Job.id)
-        inserted += len(session.execute(stmt).scalars().all())
+        inserted_ids.extend(session.execute(stmt).scalars().all())
+    ctx.counts.setdefault("tracking", {})
+    bump(ctx, track(session, ctx, "opened", record_opened, inserted_ids))
     if changed:
+        before = track(session, ctx, "snapshot", lambda s, ids: snapshot_rows(s, ids), [c["b_id"] for c in changed])
         stmt = (
             update(Job.__table__)
             .where(Job.__table__.c.id == bindparam("b_id"))
             .values(**{k: bindparam(k) for k in UPDATABLE}, embedding=None, dedup_group_id=None, is_canonical=True)
         )
         session.execute(stmt, changed)
+        after = {
+            c["b_id"]: Snapshot(c["title"], c["location"], c["salary_min"], c["salary_max"], c["description_md"] or "")
+            for c in changed
+        }
+        if before:
+            bump(ctx, track(session, ctx, "changed", record_changes, before, after))
     seen_ids_by_source: dict[str, set[int]] = {}
     ids_now = {(j.source, j.external_id) for j in jobs}
     rows = session.execute(select(Job.id, Job.source, Job.external_id).where(Job.source.in_({j.source for j in jobs})))
@@ -123,7 +158,9 @@ def upsert_jobs(session: Session, jobs: list[NormJob], ctx: RunContext) -> dict[
     for start in range(0, len(all_seen), 5000):
         chunk = all_seen[start:start + 5000]
         session.execute(update(Job).where(Job.id.in_(chunk)).values(last_seen_at=now, missed_runs=0, closed_at=None))
-    ctx.counts["inserted"] = inserted
+    if reopened:
+        bump(ctx, track(session, ctx, "reopened", record_simple, reopened, "reopened"), "reopened")
+    ctx.counts["inserted"] = len(inserted_ids)
     ctx.counts["updated"] = len(changed)
     ctx.counts["unchanged"] = len(unchanged_ids)
     return seen_ids_by_source
@@ -150,6 +187,8 @@ def close_missing(session: Session, results: list[FetchResult], seen: dict[str, 
         closed = session.execute(
             update(Job).where(Job.id.in_(missing), Job.missed_runs >= threshold).values(closed_at=now).returning(Job.id)
         ).scalars().all()
+        if closed:
+            bump(ctx, track(session, ctx, "closed", record_simple, list(closed), "closed", {"missed_runs": threshold}), "closed")
         closed_total += len(closed)
     ctx.counts["missed"] = missed_total
     ctx.counts["closed"] = closed_total
@@ -214,6 +253,7 @@ def select_candidates(session: Session, profile: Profile, ctx: RunContext) -> li
         else:
             rejected[reason] = rejected.get(reason, 0) + 1
     ctx.counts["filtered_in"] = len(kept)
+    ctx.filtered_ids = {j.id for j in kept}
     ctx.counts["filtered_out"] = rejected
     if not kept or profile.resume_embedding is None:
         return []
@@ -319,17 +359,69 @@ def top_unnotified(session: Session, profile_version: int, limit: int) -> list[t
     return list(unique.values())[:limit]
 
 
-async def notify_top(session: Session, profile: Profile, notifier: Notifier, ctx: RunContext) -> None:
+async def notify_top(session: Session, profile: Profile, notifier: Notifier, ctx: RunContext, lines: list[str] | None = None) -> None:
     picks = top_unnotified(session, profile.version, get_settings().notify_top_n)
     digest = [
         Digest(job.id, job.title, job.company_name, job.location, job.url, score.final_score or 0, score.fit_score or 0, list(score.reasons or []))
         for job, score in picks
     ]
-    sent = await notifier.send(digest)
+    if lines and "lines" in inspect.signature(notifier.send).parameters:
+        sent = await notifier.send(digest, lines=lines)
+    else:
+        sent = await notifier.send(digest)
     if picks and sent:
         session.execute(update(Job).where(Job.id.in_([j.id for j, _ in picks])).values(notified_at=utcnow()))
     ctx.counts["notified"] = sent
     ctx.counts["notifier"] = notifier.name
+
+
+async def run_stage(database_url: str | None, ctx: RunContext, name: str, fn, *args) -> Any:
+    stage = time.perf_counter()
+    try:
+        with session_scope(database_url) as session:
+            result = fn(session, *args)
+            if inspect.isawaitable(result):
+                result = await result
+        ctx.counts[name] = result
+        return result
+    except Exception as exc:
+        logger.exception("stage %s failed", name)
+        ctx.errors.append(f"{name}: {type(exc).__name__}: {exc}"[:300])
+        return None
+    finally:
+        ctx.counts[f"{name}_s"] = round(time.perf_counter() - stage, 1)
+
+
+def mark_workable(session: Session) -> int:
+    profile = latest_profile(session)
+    prefs = Preferences.from_dict(profile.preferences if profile else None)
+    rows = session.execute(
+        select(Job.id, Job.title, Job.company_name, Job.location, Job.remote, Job.seniority, Job.min_exp, Job.description_md, Job.workable_from_india)
+        .where(Job.closed_at.is_(None))
+    ).all()
+    changes = []
+    workable = 0
+    for r in rows:
+        ok = location_ok(FilterJob(r.title, r.company_name, r.location, r.remote, r.seniority, r.min_exp, None, r.description_md or ""), prefs)
+        workable += ok
+        if r.workable_from_india is not ok:
+            changes.append({"b_id": r.id, "ok": ok})
+    if changes:
+        session.execute(
+            update(Job.__table__).where(Job.__table__.c.id == bindparam("b_id")).values(workable_from_india=bindparam("ok")),
+            changes,
+        )
+    session.commit()
+    return workable
+
+
+async def insight_stages(database_url: str | None, profile_version: int | None, ctx: RunContext) -> None:
+    await run_stage(database_url, ctx, "workable_from_india", mark_workable)
+    await run_stage(database_url, ctx, "salary", lambda s: estimate_salaries(s, profile_version, ctx.filtered_ids))
+    await run_stage(database_url, ctx, "company_stats", lambda s: compute_company_stats(s, profile_version))
+    if profile_version is not None:
+        await run_stage(database_url, ctx, "skill_gaps", lambda s: refresh_skill_gaps(s, latest_profile(s)))
+    await run_stage(database_url, ctx, "reminders", lambda s: create_reminders(s))
 
 
 def fetch_counts(results: list[FetchResult], ctx: RunContext) -> None:
@@ -354,6 +446,7 @@ async def run_pipeline(
         session.add(run)
         session.flush()
         run_id = run.id
+    run_started = utcnow() - timedelta(minutes=1)
     status = "ok"
     own_http = http is None
     http = http or HttpClient()
@@ -395,11 +488,15 @@ async def run_pipeline(
                 stage = time.perf_counter()
                 await score_candidates(session, profile, candidates, chain, ctx)
                 ctx.counts["score_s"] = round(time.perf_counter() - stage, 1)
+        await insight_stages(database_url, profile.version if profile is not None else None, ctx)
+        notifier = notifier or get_notifier(http)
+        lines = await run_stage(database_url, ctx, "digest_lines", lambda s: digest_lines(s, run_started))
         if profile is not None:
             with session_scope(database_url) as session:
                 profile = latest_profile(session)
                 assert profile is not None
-                await notify_top(session, profile, notifier or get_notifier(http), ctx)
+                await notify_top(session, profile, notifier, ctx, lines or [])
+        await run_stage(database_url, ctx, "reminders_sent", lambda s: send_due_reminders(s, notifier))
         if ctx.errors and status == "ok":
             status = "partial"
     except Exception as exc:

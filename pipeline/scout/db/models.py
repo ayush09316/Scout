@@ -56,6 +56,7 @@ class Job(Base):
     is_canonical: Mapped[bool] = mapped_column(Boolean, default=True)
     embedding: Mapped[Any] = mapped_column(Vector(EMBED_DIM), nullable=True)
     notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    workable_from_india: Mapped[bool | None] = mapped_column(Boolean)
 
 
 class Profile(Base):
@@ -139,3 +140,114 @@ class Setting(Base):
     __tablename__ = "settings"
     key: Mapped[str] = mapped_column(Text, primary_key=True)
     value: Mapped[Any] = mapped_column(JSONB)
+
+
+class JobVersion(Base):
+    __tablename__ = "job_versions"
+    __table_args__ = (UniqueConstraint("job_id", "content_hash"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
+    content_hash: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text)
+    location: Mapped[str | None] = mapped_column(Text)
+    salary_min: Mapped[int | None] = mapped_column(Integer)
+    salary_max: Mapped[int | None] = mapped_column(Integer)
+    description_md: Mapped[str] = mapped_column(Text)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class JobEvent(Base):
+    __tablename__ = "job_events"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(Text)
+    detail: Mapped[dict] = mapped_column(JSONB, default=dict)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SalaryEstimate(Base):
+    __tablename__ = "salary_estimates"
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True)
+    low: Mapped[int] = mapped_column(Integer)
+    high: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(Text, default="INR")
+    confidence: Mapped[float] = mapped_column(Real)
+    n_comparables: Mapped[int] = mapped_column(Integer, default=0)
+    basis: Mapped[dict] = mapped_column(JSONB, default=dict)
+    model: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CompanyStat(Base):
+    __tablename__ = "company_stats"
+    company_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id", ondelete="SET NULL"))
+    company_name: Mapped[str] = mapped_column(Text)
+    open_jobs: Mapped[int] = mapped_column(Integer, default=0)
+    opened_30d: Mapped[int] = mapped_column(Integer, default=0)
+    closed_30d: Mapped[int] = mapped_column(Integer, default=0)
+    velocity_series: Mapped[list] = mapped_column(JSONB, default=list)
+    top_skills: Mapped[list] = mapped_column(JSONB, default=list)
+    locations: Mapped[list] = mapped_column(JSONB, default=list)
+    remote_share: Mapped[float] = mapped_column(Real, default=0)
+    seniority_mix: Mapped[dict] = mapped_column(JSONB, default=dict)
+    median_salary_inr: Mapped[int | None] = mapped_column(Integer)
+    matches: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SkillGap(Base):
+    __tablename__ = "skill_gaps"
+    profile_version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    skill: Mapped[str] = mapped_column(Text, primary_key=True)
+    jobs_mentioning: Mapped[int] = mapped_column(Integer)
+    jobs_unlocked: Mapped[int] = mapped_column(Integer)
+    avg_fit_gain: Mapped[float] = mapped_column(Real, default=0)
+    example_job_ids: Mapped[list] = mapped_column(JSONB, default=list)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ResumeVariant(Base):
+    __tablename__ = "resume_variants"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
+    profile_version: Mapped[int] = mapped_column(Integer)
+    body_md: Mapped[str] = mapped_column(Text)
+    keyword_before: Mapped[float] = mapped_column(Real)
+    keyword_after: Mapped[float] = mapped_column(Real)
+    added_keywords: Mapped[list] = mapped_column(JSONB, default=list)
+    model: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class InterviewPack(Base):
+    __tablename__ = "interview_packs"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
+    profile_version: Mapped[int] = mapped_column(Integer)
+    body: Mapped[dict] = mapped_column(JSONB)
+    model: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Reminder(Base):
+    __tablename__ = "reminders"
+    __table_args__ = (UniqueConstraint("job_id", "kind", "due_at"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(Text)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    draft: Mapped[str | None] = mapped_column(Text)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    session_id: Mapped[str] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text)
+    tool_calls: Mapped[list] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

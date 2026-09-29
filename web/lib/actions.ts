@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "./db";
-import { companies, coverNotes, feedback, labels, profile, FEEDBACK_ACTIONS, type FeedbackAction, type Preferences } from "./db/schema";
+import { companies, coverNotes, feedback, interviewPacks, labels, profile, resumeVariants, FEEDBACK_ACTIONS, type FeedbackAction, type Preferences, type PrepPack } from "./db/schema";
+import type { SearchFilters } from "./search";
+import type { TailorResult } from "./tailor";
+import { dismissReminderRow, snoozeReminderRow } from "./reminders";
 import { isDemo } from "./env";
 import { splitFor } from "./split";
 import { getJob, getProfile } from "./queries";
@@ -88,7 +91,77 @@ export async function updateCompany(id: number, patch: { active?: boolean; tier?
 }
 
 export async function searchAction(q: string) {
-  const { searchJobs } = await import("./queries");
-  if (q.trim().length < 2) return [];
-  return searchJobs(q.trim());
+  if (q.trim().length < 2) return { hits: [], mode: "keyword" as const };
+  if (!isDemo() && !(await auth())) return { hits: [], mode: "keyword" as const };
+  const { hybridSearch } = await import("./search");
+  const r = await hybridSearch(q.trim(), {}, 10);
+  return { hits: r.hits, mode: r.mode };
+}
+
+export async function hybridSearchAction(q: string, filters: SearchFilters) {
+  if (!isDemo() && !(await auth())) return { hits: [], mode: "keyword" as const, ms: 0 };
+  const { hybridSearch } = await import("./search");
+  return hybridSearch(q, filters, 40);
+}
+
+async function readGuard(): Promise<{ demo: boolean } | null> {
+  if (isDemo()) return { demo: true };
+  const session = await auth();
+  return session ? { demo: false } : null;
+}
+
+export type TailorOutput = TailorResult & { original: string; saved: boolean; profileVersion: number };
+
+export async function tailorResumeAction(jobId: number): Promise<ActionResult<TailorOutput>> {
+  const g = await readGuard();
+  if (!g) return { ok: false, error: "Not signed in" };
+  const [job, prof] = await Promise.all([getJob(jobId), getProfile()]);
+  if (!job) return { ok: false, error: "Job not found" };
+  if (!prof?.resumeMd.trim()) return { ok: false, error: "Add your resume in Settings first" };
+  const { tailorResume } = await import("./tailor");
+  const t = await tailorResume(prof.resumeMd, job);
+  if (!g.demo) {
+    await db.insert(resumeVariants).values({ jobId, profileVersion: prof.version, bodyMd: t.bodyMd, keywordBefore: t.before, keywordAfter: t.after, addedKeywords: t.added, model: t.model });
+    revalidatePath(`/job/${jobId}`);
+  }
+  return { ok: true, data: { ...t, original: prof.resumeMd, saved: !g.demo, profileVersion: prof.version } };
+}
+
+export async function prepPackAction(jobId: number): Promise<ActionResult<{ body: PrepPack; model: string; saved: boolean }>> {
+  const g = await readGuard();
+  if (!g) return { ok: false, error: "Not signed in" };
+  const [job, prof] = await Promise.all([getJob(jobId), getProfile()]);
+  if (!job) return { ok: false, error: "Job not found" };
+  const { getCompanyIntel } = await import("./intel");
+  const { buildPrepPack } = await import("./prep");
+  const intel = await getCompanyIntel(job.companyKey).catch(() => null);
+  const pack = await buildPrepPack(job, prof?.resumeMd ?? "", intel);
+  if (!g.demo) {
+    await db.insert(interviewPacks).values({ jobId, profileVersion: prof?.version ?? 0, body: pack.body, model: pack.model });
+    revalidatePath(`/job/${jobId}`);
+  }
+  return { ok: true, data: { ...pack, saved: !g.demo } };
+}
+
+export async function dismissReminder(id: number): Promise<ActionResult> {
+  const g = await guard();
+  if (g) return g;
+  await dismissReminderRow(id);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function snoozeReminder(id: number, days = 3): Promise<ActionResult> {
+  const g = await guard();
+  if (g) return g;
+  await snoozeReminderRow(id, days);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function getChatHistory(sessionId: string) {
+  if (!isDemo() && !(await auth())) return [];
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(sessionId)) return [];
+  const r = await db.execute(sql`SELECT id, role, content, tool_calls, created_at FROM chat_messages WHERE session_id = ${sessionId} AND role <> 'tool' ORDER BY created_at, id LIMIT 200`);
+  return (r as unknown as { id: string; role: "user" | "assistant"; content: string; tool_calls: unknown[] }[]).map((m) => ({ id: Number(m.id), role: m.role, content: m.content, toolCalls: m.tool_calls ?? [] }));
 }

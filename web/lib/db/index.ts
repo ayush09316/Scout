@@ -8,4 +8,5 @@ const sql = globalForDb.sql ?? postgres(process.env.DATABASE_URL ?? "postgres://
 if (process.env.NODE_ENV !== "production") globalForDb.sql = sql;
 
 export const db = drizzle(sql, { schema });
+export const rawSql = sql;
 export { schema };

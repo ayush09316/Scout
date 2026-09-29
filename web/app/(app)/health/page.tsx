@@ -5,7 +5,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty";
 import { getLatestEval, getRuns } from "@/lib/queries";
-import type { ScorerMetrics } from "@/lib/db/schema";
+import type { RunCounts, ScorerMetrics } from "@/lib/db/schema";
 import { cn, timeAgo } from "@/lib/utils";
 import { CalibrationChart, CostChart, FetchedChart, RunsChart } from "./charts";
 
@@ -46,6 +46,16 @@ export default async function HealthPage() {
     { label: "Errors · 14 runs", value: String(errors.length), sub: bySource[0] ? `most from ${bySource[0][0]}` : "all clear" },
   ];
 
+  const intelKeys: [keyof RunCounts, string][] = [
+    ["versions", "Versions captured"],
+    ["events", "Job events"],
+    ["salary_estimates", "Salary estimates"],
+    ["company_stats", "Company stats"],
+    ["skill_gaps", "Skill gaps"],
+    ["reminders_sent", "Reminders sent"],
+  ];
+  const intel = intelKeys.filter(([k]) => typeof last?.counts[k] === "number").map(([k, label]) => ({ label, value: last!.counts[k] as number }));
+
   const scorers = evalR ? Object.entries(evalR.report.scorers) : [];
   const best = Object.fromEntries(
     METRICS.map((m) => {
@@ -73,6 +83,44 @@ export default async function HealthPage() {
               </Card>
             ))}
           </div>
+
+          {(intel.length > 0 || (last?.timings.length ?? 0) > 0) && (
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] [&>*]:min-w-0" data-testid="run-intel">
+              <Card>
+                <CardHeader title="Tracking & intel · last run" description="Versions, events, salary estimates, company stats, skill gaps and reminders" />
+                {intel.length ? (
+                  <dl className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">
+                    {intel.map((t) => (
+                      <div key={t.label} className="bg-surface px-4 py-3">
+                        <dt className="text-xs text-fg-muted">{t.label}</dt>
+                        <dd className="mt-0.5 font-mono text-lg font-semibold tabular-nums">{t.value.toLocaleString("en-IN")}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className="p-4 text-sm text-fg-muted">This run didn’t report tracking counts.</p>
+                )}
+              </Card>
+              <Card>
+                <CardHeader title="Stage timings · last run" description={last?.timings.length ? `${last.timings.reduce((a, t) => a + t.s, 0).toFixed(1)}s across ${last.timings.length} stages` : undefined} />
+                {last?.timings.length ? (
+                  <ul className="space-y-2 p-4">
+                    {last.timings.slice(0, 8).map((t) => (
+                      <li key={t.stage} className="grid grid-cols-[96px_1fr_48px] items-center gap-3 text-[13px]">
+                        <span className="truncate text-fg-muted capitalize">{t.stage}</span>
+                        <span className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+                          <span className="block h-full rounded-full bg-accent/80" style={{ width: `${(t.s / Math.max(...last.timings.map((x) => x.s), 0.001)) * 100}%` }} />
+                        </span>
+                        <span className="text-right font-mono text-[11px] tabular-nums text-fg-subtle">{t.s.toFixed(1)}s</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="p-4 text-sm text-fg-muted">No timings reported.</p>
+                )}
+              </Card>
+            </div>
+          )}
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
             <Card>

@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     user_agent: str = "ScoutBot/0.1 (personal job search)"
     http_timeout: float = 30.0
     per_host_concurrency: int = 6
+    usd_inr_rate: float = 84.0
+    follow_up_after_days: int = 7
 
 
 @lru_cache

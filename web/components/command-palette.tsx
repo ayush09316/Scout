@@ -4,14 +4,14 @@ import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
-import { Keyboard, LoaderCircle, Moon, Search, Sun } from "lucide-react";
+import { ArrowRight, Keyboard, LoaderCircle, Moon, Search, Sun } from "lucide-react";
 import * as D from "@radix-ui/react-dialog";
 import { NAV } from "./nav-items";
 import { useUI } from "./ui-context";
 import { Kbd } from "./ui/kbd";
 import { CompanyLogo } from "./company-logo";
 import { searchAction } from "@/lib/actions";
-import type { JobListItem } from "@/lib/queries";
+import type { SearchHit } from "@/lib/search";
 import { pct } from "@/lib/utils";
 
 const itemCls =
@@ -22,7 +22,8 @@ export function CommandPalette() {
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<JobListItem[]>([]);
+  const [results, setResults] = useState<SearchHit[]>([]);
+  const [mode, setMode] = useState<"hybrid" | "keyword">("hybrid");
   const [pending, start] = useTransition();
 
   useEffect(() => {
@@ -41,13 +42,22 @@ export function CommandPalette() {
       setResults([]);
       return;
     }
-    const t = setTimeout(() => start(async () => setResults(await searchAction(q))), 160);
+    const t = setTimeout(
+      () =>
+        start(async () => {
+          const r = await searchAction(q);
+          setResults(r.hits);
+          setMode(r.mode);
+        }),
+      200,
+    );
     return () => clearTimeout(t);
   }, [q]);
 
   const run = (fn: () => void) => {
     setOpen(false);
     setQ("");
+    setResults([]);
     fn();
   };
 
@@ -70,9 +80,9 @@ export function CommandPalette() {
               <Kbd>esc</Kbd>
             </div>
             <Command.List className="max-h-[min(60vh,420px)] overflow-y-auto p-2">
-              <Command.Empty className="px-3 py-8 text-center text-sm text-fg-subtle">No jobs match “{q}”.</Command.Empty>
+              {!pending && q.trim().length >= 2 && results.length === 0 && <div className="px-3 py-8 text-center text-sm text-fg-subtle">No jobs match “{q}”.</div>}
               {results.length > 0 && (
-                <Command.Group heading="Jobs" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-subtle">
+                <Command.Group heading={mode === "hybrid" ? "Jobs · semantic + keyword" : "Jobs · keyword only"} className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-subtle">
                   {results.map((j) => (
                     <Command.Item key={j.id} value={`job-${j.id}`} onSelect={() => run(() => router.push(`/job/${j.id}`))} className={itemCls + " h-12"}>
                       <CompanyLogo name={j.companyName} domain={j.companyDomain} size={28} />
@@ -82,9 +92,22 @@ export function CommandPalette() {
                           {j.companyName} · {j.location ?? "—"}
                         </div>
                       </div>
-                      <span className="font-mono text-xs tabular-nums text-fg-subtle">{pct(j.fitProb)}</span>
+                      <span className="flex flex-col items-end font-mono text-[11px] leading-tight tabular-nums text-fg-subtle">
+                        {j.fitProb != null && <span>{pct(j.fitProb)} fit</span>}
+                        {j.similarity != null && <span>{pct(j.similarity)} sim</span>}
+                      </span>
                     </Command.Item>
                   ))}
+                </Command.Group>
+              )}
+              {q.trim().length >= 2 && (
+                <Command.Group heading="Search" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-subtle">
+                  <Command.Item value="search-all" onSelect={() => run(() => router.push(`/search?q=${encodeURIComponent(q.trim())}`))} className={itemCls}>
+                    <ArrowRight />
+                    <span className="flex-1 truncate">
+                      See all results for <span className="text-fg">“{q.trim()}”</span>
+                    </span>
+                  </Command.Item>
                 </Command.Group>
               )}
               {q.trim().length < 2 && (

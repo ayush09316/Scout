@@ -4,14 +4,15 @@ import { ShortcutsHelp } from "@/components/shortcuts-help";
 import { auth } from "@/auth";
 import { isDemo } from "@/lib/env";
 import { getNavCounts } from "@/lib/queries";
+import { getDueReminders } from "@/lib/intel";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [counts, session] = await Promise.all([getNavCounts(), isDemo() ? null : auth()]);
+  const [counts, session, reminders] = await Promise.all([getNavCounts(), isDemo() ? null : auth(), getDueReminders()]);
   const user = (session?.user as { login?: string; name?: string } | undefined)?.login ?? session?.user?.name ?? null;
   return (
-    <AppShell counts={counts} user={user}>
+    <AppShell counts={counts} user={user} reminders={reminders}>
       {children}
       <CommandPalette />
       <ShortcutsHelp />
