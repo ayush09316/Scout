@@ -1,0 +1,33 @@
+name: weekly-tune
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tune:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SCOUT_FAKE_EMBED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pipeline/pyproject.toml
+      - run: pip install -e pipeline
+      - run: scout calibrate
+      - run: scout tune --metrics-file metrics/latest.json
+      - name: commit metrics
+        run: |
+          git config user.name "scout-bot"
+          git config user.email "scout-bot@users.noreply.github.com"
+          git add metrics/latest.json
+          git diff --cached --quiet || git commit -m "chore: weekly tune metrics"
+          git push

@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: oklch(0.99 0.002 260);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.975 0.003 260);
+  --muted: oklch(0.955 0.004 260);
+  --border: oklch(0.915 0.005 260);
+  --border-strong: oklch(0.86 0.006 260);
+  --fg: oklch(0.2 0.01 260);
+  --fg-muted: oklch(0.46 0.012 260);
+  --fg-subtle: oklch(0.6 0.01 260);
+  --accent: oklch(0.52 0.19 268);
+  --accent-hover: oklch(0.47 0.19 268);
+  --accent-fg: oklch(0.99 0 0);
+  --accent-soft: oklch(0.955 0.03 268);
+  --accent-soft-fg: oklch(0.42 0.17 268);
+  --good: oklch(0.56 0.14 155);
+  --good-soft: oklch(0.955 0.04 155);
+  --warn: oklch(0.66 0.15 70);
+  --warn-soft: oklch(0.965 0.045 80);
+  --bad: oklch(0.57 0.2 25);
+  --bad-soft: oklch(0.96 0.03 25);
+  --ring: oklch(0.52 0.19 268 / 0.5);
+  --shadow: 0 1px 2px oklch(0.2 0.01 260 / 0.05);
+  --shadow-lg: 0 12px 32px -8px oklch(0.2 0.01 260 / 0.18), 0 2px 6px oklch(0.2 0.01 260 / 0.06);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: oklch(0.16 0.006 260);
+  --surface: oklch(0.19 0.007 260);
+  --surface-2: oklch(0.215 0.008 260);
+  --muted: oklch(0.24 0.008 260);
+  --border: oklch(0.27 0.008 260);
+  --border-strong: oklch(0.34 0.01 260);
+  --fg: oklch(0.95 0.004 260);
+  --fg-muted: oklch(0.72 0.01 260);
+  --fg-subtle: oklch(0.58 0.01 260);
+  --accent: oklch(0.66 0.16 268);
+  --accent-hover: oklch(0.71 0.15 268);
+  --accent-fg: oklch(0.16 0.01 260);
+  --accent-soft: oklch(0.27 0.06 268);
+  --accent-soft-fg: oklch(0.83 0.1 268);
+  --good: oklch(0.72 0.14 155);
+  --good-soft: oklch(0.26 0.05 155);
+  --warn: oklch(0.8 0.13 80);
+  --warn-soft: oklch(0.27 0.05 70);
+  --bad: oklch(0.7 0.17 25);
+  --bad-soft: oklch(0.27 0.06 25);
+  --ring: oklch(0.66 0.16 268 / 0.6);
+  --shadow: 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(1 0 0 / 0.04);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-fg: var(--accent-soft-fg);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-ring: var(--ring);
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-lg);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  @keyframes shimmer {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+.prose-job h2 { font-size: 0.95rem; font-weight: 600; margin: 1.5rem 0 0.5rem; color: var(--fg); }
+.prose-job h3 { font-size: 0.9rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+.prose-job p { margin: 0.5rem 0; line-height: 1.7; color: var(--fg-muted); }
+.prose-job ul { list-style: disc; padding-left: 1.25rem; margin: 0.5rem 0; color: var(--fg-muted); }
+.prose-job ol { list-style: decimal; padding-left: 1.25rem; margin: 0.5rem 0; color: var(--fg-muted); }
+.prose-job li { margin: 0.25rem 0; line-height: 1.65; }
+.prose-job strong { color: var(--fg); font-weight: 600; }
+.prose-job a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.prose-job > :first-child { margin-top: 0; }
+.prose-job mark { background: var(--good-soft); color: var(--good); border-radius: 3px; padding: 0 2px; }

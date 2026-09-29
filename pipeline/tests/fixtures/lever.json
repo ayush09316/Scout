@@ -1,0 +1,4 @@
+[
+ {"id": "a1b2", "text": "SDE 2 - Backend", "hostedUrl": "https://jobs.lever.co/beta/a1b2", "categories": {"location": "Bengaluru", "commitment": "Full-time"}, "description": "<div>Own backend services in Python/Django.</div>", "lists": [{"text": "Requirements", "content": "<li>3-6 yrs of experience</li><li>Redis, Celery, PostgreSQL</li>"}], "additional": "", "createdAt": 1758000000000, "workplaceType": "hybrid"},
+ {"id": "c3d4", "text": "Engineering Manager", "hostedUrl": "https://jobs.lever.co/beta/c3d4", "categories": {"location": "Gurgaon"}, "description": "<p>Lead a team of 8. 8+ years experience.</p>", "lists": [], "createdAt": 1758100000000, "workplaceType": "onsite", "salaryRange": {"min": 5000000, "max": 7000000, "currency": "INR"}}
+]

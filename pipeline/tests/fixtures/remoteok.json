@@ -1,0 +1,4 @@
+[
+ {"legal": "API terms"},
+ {"id": "777", "slug": "remote-backend-777", "company": "Zeta Remote", "position": "Backend Engineer", "tags": ["python", "aws"], "description": "<p>Python services on AWS. 2+ years.</p>", "location": "Asia", "salary_min": 40000, "salary_max": 60000, "url": "https://remoteok.com/remote-jobs/777", "epoch": 1758200000}
+]

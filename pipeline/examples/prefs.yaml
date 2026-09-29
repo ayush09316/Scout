@@ -1,0 +1,11 @@
+years_experience: 3
+locations: [Bengaluru]
+remote_ok: true
+remote_regions: [india, apac, asia, anywhere, worldwide, global]
+target_titles: [backend engineer, software engineer, sde 2, python developer, platform engineer]
+include_title_keywords: [engineer, developer, sde, backend, programmer, swe]
+exclude_title_keywords: [manager, director, principal, staff, intern, frontend, ios, android, sales, recruiter, designer, qa, test, "machine learning", ml, research, hardware, embedded, security, solutions, support, mechanical, electrical, customer, migration, consultant]
+max_age_days: 45
+seniority: [junior, mid, senior]
+exclude_companies: []
+skills: [python, django, postgres, celery, redis, docker, kubernetes, rest, sql, fastapi]

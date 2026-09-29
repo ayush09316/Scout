@@ -1,0 +1,5 @@
+{"jobs": [
+ {"id": 101, "title": "Backend Engineer", "absolute_url": "https://boards.greenhouse.io/acme/jobs/101", "location": {"name": "Bangalore, Karnataka, India"}, "content": "&lt;p&gt;Build APIs in &lt;strong&gt;Python&lt;/strong&gt; and Django. 2-5 years experience with PostgreSQL and Celery.&lt;/p&gt;", "updated_at": "2026-09-20T10:00:00-04:00", "first_published": "2026-09-18T10:00:00-04:00"},
+ {"id": 102, "title": "Senior Frontend Engineer", "absolute_url": "https://boards.greenhouse.io/acme/jobs/102", "location": {"name": "Remote - US"}, "content": "&lt;p&gt;React, TypeScript. 6+ years of experience.&lt;/p&gt;", "updated_at": "2026-09-21T10:00:00Z"},
+ {"id": 103, "title": "Software Engineer II, Payments", "absolute_url": "https://boards.greenhouse.io/acme/jobs/103", "location": {"name": "Remote, India"}, "content": "&lt;ul&gt;&lt;li&gt;3+ years building payment systems in Python or Go&lt;/li&gt;&lt;li&gt;Kafka, Postgres&lt;/li&gt;&lt;/ul&gt;", "updated_at": "2026-09-22T10:00:00Z"}
+]}

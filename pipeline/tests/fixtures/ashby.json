@@ -1,0 +1,4 @@
+{"jobs": [
+ {"id": "uuid-1", "title": "Platform Engineer", "location": "Remote", "secondaryLocations": [{"location": "Bengaluru"}], "isRemote": true, "isListed": true, "descriptionHtml": "<p>Kubernetes, Terraform, Python. Minimum 2 years of experience.</p>", "jobUrl": "https://jobs.ashbyhq.com/gamma/uuid-1", "publishedAt": "2026-09-19T08:00:00.000+00:00", "workplaceType": "Remote"},
+ {"id": "uuid-2", "title": "Hidden Role", "location": "Mumbai", "isListed": false, "descriptionHtml": "", "jobUrl": "https://jobs.ashbyhq.com/gamma/uuid-2"}
+]}
