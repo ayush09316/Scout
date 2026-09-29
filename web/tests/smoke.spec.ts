@@ -7,6 +7,7 @@ test.describe("today", () => {
     const cards = page.getByTestId("job-card");
     await expect(cards.first()).toBeVisible();
     await expect(cards.first()).toHaveAttribute("aria-current", "true");
+    await page.waitForLoadState("networkidle");
     await page.keyboard.press("j");
     await expect(cards.nth(1)).toHaveAttribute("aria-current", "true");
     await page.keyboard.press("k");
