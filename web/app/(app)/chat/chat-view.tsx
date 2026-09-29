@@ -1,5 +1,7 @@
 "use client";
 
+import { getUserKey, useUserKey } from "@/lib/user-key";
+
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -115,7 +117,9 @@ function Markdown({ text }: { text: string }) {
   );
 }
 
-export function ChatView({ llm }: { llm: boolean }) {
+export function ChatView({ llm: serverLlm }: { llm: boolean }) {
+  const userKey = useUserKey();
+  const llm = serverLlm || !!userKey;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -172,7 +176,7 @@ export function ChatView({ llm }: { llm: boolean }) {
     setMsgs((m) => [...m, { id: `u-${m.length}`, role: "user", content: q, tools: [] }, { id: aid, role: "assistant", content: "", tools: [], streaming: true }]);
     const patch = (fn: (m: Msg) => Msg) => setMsgs((ms) => ms.map((m) => (m.id === aid ? fn(m) : m)));
     try {
-      const res = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sessionId, message: q, history }) });
+      const res = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json", ...(getUserKey() ? { "x-gemini-key": getUserKey()! } : {}) }, body: JSON.stringify({ sessionId, message: q, history }) });
       if (!res.ok || !res.body) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
         patch((m) => ({ ...m, streaming: false, error: err.error ?? `Request failed (${res.status})` }));
@@ -239,7 +243,10 @@ export function ChatView({ llm }: { llm: boolean }) {
               <div className="mt-3 max-w-md rounded-xl border border-border bg-surface-2/60 px-4 py-3 text-left" data-testid="no-key">
                 <p className="flex items-center gap-2 text-[13px] font-medium text-fg">
                   <KeyRound className="size-4 text-warn" aria-hidden />
-                  Set <code className="rounded bg-muted px-1 font-mono text-xs">GEMINI_API_KEY</code> for open-ended questions
+                  Add a Gemini key for open-ended questions
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-fg-muted">
+                  <Link href="/settings#api-keys" className="font-medium text-accent hover:underline">Use your own key</Link> — it stays in this browser and is sent only with your requests.
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-fg-muted">
                   Without a key, a small built-in rules router still answers the starter questions below (and similar ones) by running real SQL and search against your data.

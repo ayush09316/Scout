@@ -1,11 +1,27 @@
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 export const GEMINI_MODEL = "gemini-2.5-flash";
 
-export const hasGemini = () => !!process.env.GEMINI_API_KEY;
+const userKey = new AsyncLocalStorage<string>();
+
+export function cleanKey(key: unknown): string | null {
+  return typeof key === "string" && /^[A-Za-z0-9_-]{20,100}$/.test(key.trim()) ? key.trim() : null;
+}
+
+export function withUserKey<T>(key: unknown, fn: () => Promise<T>): Promise<T> {
+  const k = cleanKey(key);
+  return k ? userKey.run(k, fn) : fn();
+}
+
+export const activeKey = () => userKey.getStore() ?? process.env.GEMINI_API_KEY ?? "";
+
+export const hasGemini = () => !!activeKey();
+
+export const hasServerKey = () => !!process.env.GEMINI_API_KEY;
 
 export function geminiUrl(method: "generateContent" | "streamGenerateContent") {
-  const key = process.env.GEMINI_API_KEY ?? "";
+  const key = activeKey();
   const q = method === "streamGenerateContent" ? `alt=sse&key=${encodeURIComponent(key)}` : `key=${encodeURIComponent(key)}`;
   return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:${method}?${q}`;
 }

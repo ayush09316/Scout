@@ -1,9 +1,10 @@
 import "server-only";
 import type { JobDetail } from "./queries";
 import type { Preferences } from "./db/schema";
+import { GEMINI_MODEL, activeKey, geminiUrl } from "./llm";
 
 export async function writeCoverNote(job: JobDetail, resumeMd: string, prefs: Preferences): Promise<{ body: string; model: string }> {
-  const key = process.env.GEMINI_API_KEY;
+  const key = activeKey();
   if (key) {
     try {
       const prompt = [
@@ -12,7 +13,7 @@ export async function writeCoverNote(job: JobDetail, resumeMd: string, prefs: Pr
         `<resume>\n${resumeMd.slice(0, 6000)}\n</resume>`,
         `<job title="${job.title}" company="${job.companyName}">\n${job.descriptionMd.slice(0, 8000)}\n</job>`,
       ].join("\n\n");
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+      const res = await fetch(geminiUrl("generateContent"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 1024 } }),
@@ -21,7 +22,7 @@ export async function writeCoverNote(job: JobDetail, resumeMd: string, prefs: Pr
       if (res.ok) {
         const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
         const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim();
-        if (text) return { body: text, model: "gemini-2.5-flash" };
+        if (text) return { body: text, model: GEMINI_MODEL };
       }
     } catch {}
   }

@@ -1,5 +1,7 @@
 "use client";
 
+import { getUserKey } from "@/lib/user-key";
+
 import { useState, useTransition } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import ReactMarkdown from "react-markdown";
@@ -56,7 +58,7 @@ export function TailorDrawer({ jobId, original, initial }: { jobId: number; orig
 
   const generate = () =>
     start(async () => {
-      const res = await tailorResumeAction(jobId);
+      const res = await tailorResumeAction(jobId, getUserKey());
       if (handleResult(res) && res.data) {
         const d: TailorOutput = res.data;
         setOrig(d.original);

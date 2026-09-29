@@ -1,5 +1,7 @@
 "use client";
 
+import { getUserKey } from "@/lib/user-key";
+
 import { useState, useTransition } from "react";
 import { Check, Copy, LoaderCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -16,7 +18,7 @@ export function CoverNote({ jobId, initial }: { jobId: number; initial: { body: 
 
   const gen = () =>
     start(async () => {
-      const res = await generateCoverNote(jobId);
+      const res = await generateCoverNote(jobId, getUserKey());
       if (handleResult(res, "Cover note ready") && res.data) setNote(res.data);
     });
 

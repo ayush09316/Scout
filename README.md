@@ -70,6 +70,8 @@ venv/bin/scout run
 cd ../web && npm install && cp .env.example .env.local && npm run dev
 ```
 
+Bring your own key: paste a Gemini key in Settings → API keys. It stays in the browser's local storage, is sent only with your own AI requests, and the server uses it for that request without saving or logging it — so a public demo can run real AI features on the visitor's quota.
+
 Zero keys needed: the heuristic scorer and a console notifier stand in. Add `OPENROUTER_API_KEY` (Jev), `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` to turn on the real paths.
 
 Demo data for any database: `scout seed-demo --database-url <url>`.

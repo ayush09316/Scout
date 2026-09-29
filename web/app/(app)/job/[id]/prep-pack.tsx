@@ -1,5 +1,7 @@
 "use client";
 
+import { getUserKey } from "@/lib/user-key";
+
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { Building2, ChevronRight, CircleHelp, Code2, GraduationCap, LoaderCircle, MessageCircleQuestion, Network, RefreshCcw, Sparkles, Users } from "lucide-react";
@@ -82,7 +84,7 @@ export function PrepPack({ jobId, initial, autoGenerate }: { jobId: number; init
 
   const generate = () =>
     start(async () => {
-      const res = await prepPackAction(jobId);
+      const res = await prepPackAction(jobId, getUserKey());
       if (handleResult(res) && res.data) {
         setPack({ body: res.data.body, model: res.data.model });
         toast.success(res.data.saved ? "Prep pack saved" : "Prep pack ready", { description: res.data.saved ? undefined : "Demo mode — not saved." });

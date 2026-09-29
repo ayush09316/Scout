@@ -3,6 +3,8 @@ import { PageHeader } from "@/components/app-shell";
 import { getCompanies, getProfile } from "@/lib/queries";
 import { ProfileForm } from "./profile-form";
 import { CompaniesTable } from "./companies-table";
+import { ApiKeys } from "./api-keys";
+import { hasServerKey } from "@/lib/llm";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -13,6 +15,7 @@ export default async function SettingsPage() {
       <PageHeader title="Settings" description="Your profile drives scoring. Saving creates a new profile version and triggers re-scoring on the next run." />
       <div className="mt-6 space-y-6">
         <ProfileForm profile={prof} />
+        <ApiKeys serverKey={hasServerKey()} />
         <CompaniesTable companies={companies} />
       </div>
     </div>

@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { chatMessages } from "@/lib/db/schema";
 import { isDemo } from "@/lib/env";
-import { GEMINI_MODEL, hasGemini } from "@/lib/llm";
+import { GEMINI_MODEL, activeKey, hasGemini, withUserKey } from "@/lib/llm";
 import { runAgent } from "@/lib/chat/agent";
 import { runRules } from "@/lib/chat/rules";
 
@@ -29,7 +29,11 @@ function rateLimit(key: string) {
 
 type Body = { sessionId?: string; message?: string; history?: { role: "user" | "assistant"; content: string }[] };
 
-export async function POST(req: NextRequest) {
+export function POST(req: NextRequest) {
+  return withUserKey(req.headers.get("x-gemini-key"), () => handle(req));
+}
+
+async function handle(req: NextRequest) {
   const demo = isDemo();
   const session = demo ? null : await auth();
   if (!demo && !session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -51,9 +55,11 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const enc = new TextEncoder();
       const toolLog: Record<string, unknown>[] = [];
+      const secret = activeKey();
       const emit = (e: Record<string, unknown>) => {
         if (e.t === "tool") toolLog.push(e);
-        controller.enqueue(enc.encode(JSON.stringify(e) + "\n"));
+        const line = JSON.stringify(e);
+        controller.enqueue(enc.encode((secret ? line.split(secret).join("***") : line) + "\n"));
       };
       emit({ t: "meta", model, remaining: rl.remaining });
       try {
