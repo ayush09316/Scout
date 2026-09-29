@@ -220,7 +220,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
                     <div className="min-w-0 text-[13px]">
                       <p className="font-medium text-fg">{actionLabel[f.action]}</p>
                       {f.note && <p className="text-fg-muted">{f.note}</p>}
-                      <p className="text-xs text-fg-subtle">{new Date(f.at).toLocaleDateString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                      <p className="text-xs text-fg-subtle">{new Date(f.at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
                     </div>
                   </li>
                 ))}

@@ -31,3 +31,7 @@ export function initials(name: string) {
     .map((w) => w[0]!.toUpperCase())
     .join("");
 }
+
+export function formatDateTime(d: string | Date) {
+  return new Date(d).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}

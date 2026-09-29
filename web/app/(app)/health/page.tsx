@@ -29,7 +29,7 @@ export default async function HealthPage() {
   ).sort((a, b) => b[1] - a[1]);
 
   const runData = runs.map((r) => ({
-    day: new Date(r.startedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+    day: new Date(r.startedAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }),
     fetched: r.counts.fetched ?? 0,
     new: r.counts.new ?? 0,
     scored: r.counts.scored ?? 0,
@@ -41,7 +41,7 @@ export default async function HealthPage() {
 
   const tiles = [
     { label: "Last run", value: last ? timeAgo(last.startedAt) + " ago" : "—", sub: last ? last.status : "never", tone: last?.status === "ok" ? "good" : "warn" },
-    { label: "Jobs fetched", value: (last?.counts.fetched ?? 0).toLocaleString(), sub: `${last?.counts.new ?? 0} new · ${last?.counts.scored ?? 0} scored` },
+    { label: "Jobs fetched", value: (last?.counts.fetched ?? 0).toLocaleString("en-IN"), sub: `${last?.counts.new ?? 0} new · ${last?.counts.scored ?? 0} scored` },
     { label: "Spend · 14 runs", value: `$${totalCost.toFixed(3)}`, sub: `$${(totalCost / Math.max(1, runs.length)).toFixed(4)} / run` },
     { label: "Errors · 14 runs", value: String(errors.length), sub: bySource[0] ? `most from ${bySource[0][0]}` : "all clear" },
   ];

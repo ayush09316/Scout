@@ -18,7 +18,7 @@ import type { FeedbackAction } from "@/lib/db/schema";
 import { useHotkeys } from "@/lib/hotkeys";
 import type { JobListItem } from "@/lib/queries";
 import { handleResult } from "@/lib/toast";
-import { cn, timeAgo } from "@/lib/utils";
+import { cn, formatDateTime, timeAgo } from "@/lib/utils";
 
 type Tab = "top" | "maybe" | "all";
 type Filters = { remote: "any" | "remote" | "onsite"; location: string; seniority: string; minScore: number; source: string; sort: "score" | "newest" };
@@ -268,7 +268,7 @@ function JobRow({ job, idx, selected, onSelect, onAct }: { job: JobListItem; idx
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-fg-muted">
                 <span className="font-medium text-fg">{job.companyName}</span>
                 <span aria-hidden className="text-fg-subtle">·</span>
-                <span className="text-fg-subtle" title={new Date(posted).toLocaleString()}>
+                <span className="text-fg-subtle" title={formatDateTime(posted)}>
                   {timeAgo(posted)} ago
                 </span>
                 {job.seniority && (

@@ -16,7 +16,7 @@ function Tip({ active, payload, label, fmt }: { active?: boolean; payload?: { na
         <p key={p.name} className="flex items-center gap-2 text-fg-muted">
           <span className="size-2 rounded-full" style={{ background: p.color }} />
           <span className="capitalize">{p.name}</span>
-          <span className="ml-auto pl-3 font-mono text-fg tabular-nums">{fmt ? fmt(p.value) : p.value.toLocaleString()}</span>
+          <span className="ml-auto pl-3 font-mono text-fg tabular-nums">{fmt ? fmt(p.value) : p.value.toLocaleString("en-IN")}</span>
         </p>
       ))}
     </div>
