@@ -34,7 +34,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
   const foreign = Boolean(session);
   const p = configuredProviders();
   return (
-    <div className="lx relative grid min-h-dvh overflow-x-clip lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+    <div className="lx relative grid min-h-dvh overflow-x-clip lg:h-dvh lg:overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="lx-aurora">
           <span className="a" />
@@ -49,8 +49,8 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           <BrandLink />
           <ThemeToggle compact />
         </div>
-        <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10">
-          <Link href="/" className="mb-6 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-md text-[13px] text-fg-muted hover:text-fg">
+        <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-6 [@media(min-height:820px)]:py-10">
+          <Link href="/" className="mb-4 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-md text-[13px] text-fg-muted hover:text-fg">
             <ArrowLeft className="size-3.5" aria-hidden />
             Back to home
           </Link>
@@ -85,13 +85,13 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           <p className="mt-6 text-center text-xs text-fg-subtle">Owner-only instance · everyone else, <Link href="/#waitlist" className="underline underline-offset-4 hover:text-fg-muted">join the waitlist</Link>.</p>
         </div>
       </main>
-      <aside aria-label="About Scout" className="relative hidden overflow-hidden border-l border-border lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-center lg:px-12 lg:py-10 xl:px-16">
-        <div className="relative">
+      <aside aria-label="About Scout" className="relative hidden overflow-hidden border-l border-border lg:flex lg:h-dvh lg:flex-col lg:justify-center lg:px-12 lg:py-8 xl:px-16">
+        <div className="relative flex min-h-0 flex-col">
           <p className="lx-eyebrow">Scout</p>
-          <p className="mt-3 max-w-[14ch] text-[2.5rem] leading-[0.98] font-semibold tracking-[-0.045em] text-balance text-fg xl:text-[2.9rem]">
+          <p className="mt-3 max-w-[14ch] text-[2.1rem] leading-[0.98] font-semibold tracking-[-0.045em] text-balance text-fg [@media(min-height:860px)]:text-[2.5rem] xl:[@media(min-height:860px)]:text-[2.9rem]">
             Your job hunt, <Accent>ranked</Accent> before <Accent>breakfast.</Accent>
           </p>
-          <ul className="mt-6 grid max-w-md gap-2.5">
+          <ul className="mt-5 hidden max-w-md gap-2.5 [@media(min-height:900px)]:grid">
             {HIGHLIGHTS.map((h) => (
               <li key={h.text} className="flex items-start gap-3 text-[13.5px] text-fg-muted">
                 <span className="lx-glass flex size-7 shrink-0 items-center justify-center rounded-lg text-accent">
@@ -101,7 +101,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
               </li>
             ))}
           </ul>
-          <div className="mt-6 max-w-[540px]">
+          <div className="mt-5 w-full max-w-[min(540px,calc((100dvh-250px)*1.45))] [@media(min-height:900px)]:max-w-[min(540px,calc((100dvh-440px)*1.45))]">
             <PanelStack data={EMPTY_STACK} panels={["today", "tracker", "job"]} compact />
           </div>
         </div>
