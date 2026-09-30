@@ -29,6 +29,7 @@ OPEN_EVENTS = text(
     "SELECT j.company_name, e.at FROM job_events e JOIN jobs j ON j.id = e.job_id "
     "WHERE e.kind IN ('opened', 'reopened') AND j.is_canonical AND e.at >= :since "
     "UNION ALL SELECT j.company_name, j.first_seen_at FROM jobs j WHERE j.is_canonical AND j.first_seen_at >= :since "
+    "AND j.first_seen_at > COALESCE((SELECT MIN(r.finished_at) FROM runs r WHERE r.status = 'ok'), '-infinity') "
     "AND NOT EXISTS (SELECT 1 FROM job_events e WHERE e.job_id = j.id AND e.kind = 'opened')"
 )
 CLOSE_EVENTS = text(
