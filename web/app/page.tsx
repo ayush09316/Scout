@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight, ChevronRight, Play } from "lucide-react";
 import { auth } from "@/auth";
-import { buttonClass } from "@/components/ui/button";
 import { BrandLink } from "@/components/landing/brand";
 import { LandingNav } from "@/components/landing/nav";
-import { ProductPreview, SAMPLE_JOBS, toPreview } from "@/components/landing/product-preview";
+import { LiveRanking } from "@/components/landing/live-ranking";
+import { LandingFX, CountUp } from "@/components/landing/motion";
+import { SAMPLE_JOBS, toPreview } from "@/components/landing/product-preview";
+import { RunTerminal } from "@/components/landing/terminal";
+import { TelegramDigest } from "@/components/landing/telegram";
 import { RelativeTime } from "@/components/landing/relative-time";
-import { Bento, BuiltWith, Honest, Pipeline } from "@/components/landing/sections";
+import { Accent, Bento, BuiltWith, Faq, Honest, Marquee, Pipeline, SectionHeading } from "@/components/landing/sections";
 import { demoUrl, isDemo } from "@/lib/env";
-import { getLandingStats, getPreviewJobs } from "@/lib/landing";
+import { getLandingStats, getPreviewJobs, getTrackedCompanies } from "@/lib/landing";
 import { getLatestEval } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -47,101 +50,179 @@ async function safeSession() {
 
 export default async function Home() {
   const demo = isDemo();
-  const [session, stats, previewJobs, calibration] = await Promise.all([demo ? null : safeSession(), getLandingStats(), getPreviewJobs(), safeCalibration()]);
+  const [session, stats, previewJobs, calibration, companies] = await Promise.all([demo ? null : safeSession(), getLandingStats(), getPreviewJobs(), safeCalibration(), getTrackedCompanies()]);
   const signedIn = Boolean(session);
   const canOpen = demo || signedIn;
   const demoLink = demoUrl();
   const jobs = previewJobs ? toPreview(previewJobs) : SAMPLE_JOBS;
   const primary = canOpen ? { href: "/today", label: "Open dashboard" } : { href: "/signin", label: "Sign in" };
+  const f = stats.funnel;
 
   const stat = [
-    { label: "open jobs", value: stats.openJobs != null ? fmt(stats.openJobs) : null },
-    { label: "companies", value: stats.companies != null ? fmt(stats.companies) : null },
-    { label: "sources", value: stats.sources != null ? fmt(stats.sources) : null },
-  ].filter((s) => s.value);
+    { label: "open jobs", value: stats.openJobs },
+    { label: "companies", value: stats.companies },
+    { label: "sources", value: stats.sources },
+  ].filter((s): s is { label: string; value: number } => s.value != null);
+
+  const funnel = f
+    ? [
+        { label: "fetched", value: f.fetched },
+        { label: "dupes", value: f.duplicates },
+        { label: "India-workable", value: f.india },
+        { label: "scored", value: f.ranked },
+        { label: "delivered", value: f.delivered },
+      ]
+    : null;
+
+  const Primary = ({ size = "lg" }: { size?: "lg" | "md" }) => (
+    <Link href={primary.href} className={`lx-btn inline-flex items-center justify-center gap-2 rounded-full font-medium ${size === "lg" ? "h-12 px-6 text-[15px]" : "h-11 px-5 text-[14px]"}`}>
+      <span className="shine" aria-hidden />
+      <span>{primary.label}</span>
+      <ArrowRight className="size-4" aria-hidden />
+    </Link>
+  );
 
   return (
-    <div className="min-h-dvh overflow-x-clip">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:shadow-pop">
+    <div className="lx relative min-h-dvh overflow-x-clip">
+      <LandingFX />
+      <div aria-hidden className="lx-noise fixed inset-0 z-[60]" />
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:shadow-pop">
         Skip to content
       </a>
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[1100px]">
+        <div className="lx-aurora">
+          <span className="a" />
+          <span className="b" />
+          <span className="c" />
+        </div>
+        <div className="lx-dots" />
+        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-b from-transparent to-bg" />
+      </div>
       <LandingNav canOpen={canOpen} signedIn={signedIn} />
-      <main id="main">
-        <section aria-labelledby="hero" className="relative px-4 pt-16 pb-20 sm:px-6 sm:pt-24 sm:pb-28">
-          <div aria-hidden className="landing-grid pointer-events-none absolute inset-x-0 top-0 -z-10 h-[640px]" />
-          <div className="mx-auto max-w-3xl text-center">
-            <p className="landing-rise inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-fg-muted shadow-card backdrop-blur">
+      <main id="main" className="relative">
+        <section aria-labelledby="hero" className="relative px-4 pt-12 pb-16 sm:px-6 sm:pt-16 sm:pb-24">
+          <div className="mx-auto max-w-[1200px] text-center">
+            <p className="lx-rise lx-glass inline-flex h-8 items-center whitespace-nowrap gap-2 rounded-full px-3.5 text-[12.5px] text-fg-muted">
               <span className="relative flex size-1.5">
                 <span className="absolute inset-0 rounded-full bg-good motion-safe:animate-ping motion-safe:opacity-60" />
                 <span className="relative size-1.5 rounded-full bg-good" />
               </span>
               Runs every morning at 08:00 IST
+              {stats.lastRunAt && (
+                <>
+                  <span className="hidden text-fg-subtle sm:inline">·</span>
+                  <span className="hidden text-fg-subtle sm:inline">
+                    refreshed <RelativeTime iso={stats.lastRunAt} />
+                  </span>
+                </>
+              )}
             </p>
-            <h1 id="hero" className="landing-rise mt-6 text-[2.5rem] leading-[1.05] font-semibold tracking-[-0.04em] text-balance text-fg [animation-delay:60ms] sm:text-6xl lg:text-[4.25rem]">
-              Your job hunt, <span className="landing-ink">ranked before breakfast.</span>
+            <h1 id="hero" className="lx-rise mx-auto mt-7 max-w-[16ch] text-[2.6rem] min-[400px]:text-[2.75rem] leading-[0.95] font-semibold tracking-[-0.045em] text-fg [animation-delay:80ms] sm:text-[4.5rem] lg:text-[5.75rem]">
+              Your job hunt,
+              <br />
+              <Accent>ranked</Accent> before <Accent>breakfast.</Accent>
             </h1>
-            <p className="landing-rise mx-auto mt-5 max-w-xl text-base leading-relaxed text-pretty text-fg-muted [animation-delay:110ms] sm:text-lg">
+            <p className="lx-rise mx-auto mt-7 max-w-[39rem] text-[16px] leading-relaxed text-pretty text-fg-muted [animation-delay:160ms] sm:text-[18px]">
               Scout reads thousands of fresh postings from company job boards, keeps the ones you can work from India, and ranks them against your resume. The ten best land in Telegram; the rest wait in a keyboard-first inbox.
             </p>
-            <div className="landing-rise mt-8 flex flex-col items-stretch justify-center gap-2.5 [animation-delay:140ms] min-[420px]:flex-row min-[420px]:items-center">
-              <Link href={primary.href} className={buttonClass("primary", "md", "h-11 px-5 text-[15px]")}>
-                {primary.label}
-                <ArrowRight aria-hidden />
-              </Link>
-              <a href="#how-it-works" className={buttonClass("outline", "md", "h-11 px-5 text-[15px]")}>
+            <div className="lx-rise mt-9 flex flex-col items-stretch justify-center gap-3 [animation-delay:240ms] min-[420px]:flex-row min-[420px]:items-center">
+              <Primary />
+              <a href="#how-it-works" className="lx-btn-2 inline-flex h-12 items-center justify-center gap-1.5 rounded-full px-6 text-[15px] font-medium backdrop-blur">
                 See how it works
+                <ChevronRight className="size-4 text-fg-subtle" aria-hidden />
               </a>
               {demoLink && (
-                <a href={demoLink} className={buttonClass("ghost", "md", "h-11 px-4 text-[15px]")}>
-                  <Play aria-hidden />
+                <a href={demoLink} className="inline-flex h-12 items-center justify-center gap-2 rounded-full px-4 text-[15px] font-medium text-fg-muted hover:text-fg">
+                  <Play className="size-4" aria-hidden />
                   View demo
                 </a>
               )}
             </div>
-            {(stat.length > 0 || stats.lastRunAt) && (
-              <dl className="landing-rise mx-auto mt-10 flex max-w-xl flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm [animation-delay:170ms]" data-testid="stat-strip">
-                {stat.map((s) => (
-                  <div key={s.label} className="flex items-baseline gap-1.5">
-                    <dd className="font-mono font-semibold text-fg tabular-nums">{s.value}</dd>
-                    <dt className="text-fg-subtle">{s.label}</dt>
-                  </div>
-                ))}
-                {stats.lastRunAt && (
-                  <div className="flex items-baseline gap-1.5">
-                    <dt className="text-fg-subtle">refreshed</dt>
-                    <dd className="font-medium text-fg-muted">
-                      <RelativeTime iso={stats.lastRunAt} />
-                    </dd>
-                  </div>
-                )}
-              </dl>
+            {funnel ? (
+              <div className="lx-rise mx-auto mt-12 max-w-[760px] [animation-delay:320ms]" data-testid="stat-strip">
+                <p className="lx-eyebrow">Latest run</p>
+                <ol className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-3 font-mono text-[13px]">
+                  {funnel.map((s, i) => (
+                    <li key={s.label} className="flex items-center gap-2">
+                      <span className="flex items-baseline gap-1.5 rounded-full border border-border bg-surface/60 px-3 py-1.5 backdrop-blur">
+                        <CountUp value={s.value} delay={400 + i * 160} duration={1300} className={`font-semibold tabular-nums ${i === funnel.length - 1 ? "text-accent" : "text-fg"}`} />
+                        <span className="font-sans text-[12px] text-fg-subtle">{s.label}</span>
+                      </span>
+                      {i < funnel.length - 1 && <ArrowRight className="size-3 text-fg-subtle" aria-hidden />}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : (
+              stat.length > 0 && (
+                <dl className="lx-rise mx-auto mt-12 flex max-w-xl flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm [animation-delay:320ms]" data-testid="stat-strip">
+                  {stat.map((s) => (
+                    <div key={s.label} className="flex items-baseline gap-1.5">
+                      <dd className="font-mono font-semibold text-fg tabular-nums">{fmt(s.value)}</dd>
+                      <dt className="text-fg-subtle">{s.label}</dt>
+                    </div>
+                  ))}
+                </dl>
+              )
             )}
           </div>
-          <div className="mt-14 sm:mt-20">
-            <ProductPreview jobs={jobs} live={Boolean(previewJobs)} />
+          <div className="lx-rise mx-auto mt-14 w-full max-w-[1040px] [animation-delay:380ms] sm:mt-20">
+            <LiveRanking jobs={jobs} live={Boolean(previewJobs)} />
           </div>
         </section>
 
+        <Marquee names={companies} total={stats.companies} />
         <Pipeline stats={stats} />
         <Bento />
+
+        <section aria-labelledby="digest" className="relative scroll-mt-20 px-4 py-24 sm:px-6 sm:py-32 lg:py-36">
+          <div className="mx-auto grid max-w-[1200px] items-center gap-14 lg:grid-cols-[1fr_1fr] lg:gap-20">
+            <div>
+              <SectionHeading
+                align="left"
+                id="digest"
+                eyebrow="Delivered"
+                title={
+                  <>
+                    Ten jobs in Telegram, <Accent>at 08:00 IST.</Accent>
+                  </>
+                }
+                body="One message per match with the reasons it fits. Rate each with a thumbs up or down to teach the ranker, or mark it Applied in one tap. The full ranked inbox waits on the web."
+              />
+              {stats.runRows.length > 0 && (
+                <div className="mt-10" data-reveal>
+                  <RunTerminal runId={stats.runId} rows={stats.runRows} />
+                </div>
+              )}
+            </div>
+            <div className="relative" data-reveal>
+              <div aria-hidden className="absolute inset-0 -z-10 m-auto size-[80%] rounded-full bg-[radial-gradient(closest-side,rgb(168_85_247/0.28),transparent)] blur-2xl" />
+              <TelegramDigest jobs={jobs} live={Boolean(previewJobs)} count={f?.delivered || 10} />
+            </div>
+          </div>
+        </section>
+
         <Honest calibration={calibration} />
+        <Faq />
         <BuiltWith />
 
-        <section aria-labelledby="cta" className="px-4 pb-20 sm:px-6">
-          <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl border border-border bg-surface px-6 py-14 text-center shadow-pop sm:py-20">
-            <div aria-hidden className="pointer-events-none absolute inset-0 [background:radial-gradient(50%_80%_at_50%_0%,var(--accent-soft),transparent_70%)]" />
+        <section aria-labelledby="cta" className="px-4 pt-8 pb-24 sm:px-6 sm:pb-32">
+          <div className="relative mx-auto max-w-[1200px] overflow-hidden rounded-[28px] border border-border px-6 py-20 text-center sm:py-28" data-reveal>
+            <div aria-hidden className="lx-aurora opacity-80">
+              <span className="a" />
+              <span className="b" />
+              <span className="c" />
+            </div>
+            <div aria-hidden className="lx-dots [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000,transparent)]" />
             <div className="relative">
-              <h2 id="cta" className="text-[1.75rem] leading-tight font-semibold tracking-[-0.025em] text-balance text-fg sm:text-4xl">
-                Tomorrow&apos;s ten are already being ranked.
+              <h2 id="cta" className="mx-auto max-w-[18ch] text-[2.25rem] leading-[1] font-semibold tracking-[-0.045em] text-balance text-fg sm:text-6xl">
+                Tomorrow&apos;s ten are already being <Accent>ranked.</Accent>
               </h2>
-              <p className="mx-auto mt-3 max-w-md text-[15px] text-fg-muted">Private by default. Self-host it on free tiers, sign in, and start triaging.</p>
-              <div className="mt-8 flex flex-col items-stretch justify-center gap-2.5 min-[420px]:flex-row min-[420px]:items-center">
-                <Link href={primary.href} className={buttonClass("primary", "md", "h-11 px-5 text-[15px]")}>
-                  {primary.label}
-                  <ArrowRight aria-hidden />
-                </Link>
+              <p className="mx-auto mt-5 max-w-md text-[16px] text-fg-muted">Private by default. Self-host it on free tiers, sign in, and start triaging.</p>
+              <div className="mt-9 flex flex-col items-stretch justify-center gap-3 min-[420px]:flex-row min-[420px]:items-center">
+                <Primary />
                 {demoLink && (
-                  <a href={demoLink} className={buttonClass("outline", "md", "h-11 px-5 text-[15px]")}>
+                  <a href={demoLink} className="lx-btn-2 inline-flex h-12 items-center justify-center rounded-full px-6 text-[15px] font-medium">
                     View demo
                   </a>
                 )}
@@ -150,17 +231,26 @@ export default async function Home() {
           </div>
         </section>
       </main>
-      <footer className="border-t border-border px-4 py-10 sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-2">
+      <footer className="relative border-t border-border px-4 py-12 sm:px-6">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
             <BrandLink />
-            <p className="text-xs text-fg-subtle">A personal job-hunt copilot. Public ATS APIs only.</p>
+            <p className="text-[12.5px] text-fg-subtle">A personal job-hunt copilot. Public ATS APIs only.</p>
           </div>
-          <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-fg-muted">
-            <a href="#features" className="hover:text-fg">Features</a>
-            <a href="#how-it-works" className="hover:text-fg">How it works</a>
-            <a href="#built-with" className="hover:text-fg">Built with</a>
-            <Link href={primary.href} className="hover:text-fg">{primary.label}</Link>
+          <nav aria-label="Footer" className="flex flex-wrap gap-x-1 gap-y-1 text-[13.5px] text-fg-muted">
+            {[
+              ["#how-it-works", "How it works"],
+              ["#features", "Features"],
+              ["#faq", "FAQ"],
+              ["#built-with", "Built with"],
+            ].map(([h, l]) => (
+              <a key={h} href={h} className="inline-flex min-h-11 items-center rounded-md px-2.5 hover:text-fg">
+                {l}
+              </a>
+            ))}
+            <Link href={primary.href} className="inline-flex min-h-11 items-center rounded-md px-2.5 hover:text-fg">
+              {primary.label}
+            </Link>
           </nav>
         </div>
       </footer>

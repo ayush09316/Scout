@@ -35,10 +35,11 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-accent text-sm font-medium text-accent-fg shadow-card transition-colors hover:bg-accent-hover disabled:opacity-70"
+      className="lx-btn flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium disabled:opacity-70"
     >
+      <span className="shine" aria-hidden />
       {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-      {pending ? "Signing in…" : "Sign in"}
+      <span>{pending ? "Signing in…" : "Sign in"}</span>
     </button>
   );
 }
@@ -49,7 +50,7 @@ function GitHubButton() {
     <button
       type="submit"
       disabled={pending}
-      className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface text-sm font-medium text-fg shadow-card transition-colors hover:border-border-strong hover:bg-surface-2 disabled:opacity-70"
+      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface text-sm font-medium text-fg shadow-card transition-colors hover:border-border-strong hover:bg-surface-2 disabled:opacity-70"
     >
       {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <GitHubMark />}
       Continue with GitHub
@@ -107,7 +108,7 @@ export function SignInForm({ callbackUrl, initialError, credentials, github }: {
               aria-describedby={emailErr ? "email-err" : undefined}
               placeholder="you@example.com"
               className={cn(
-                "h-10 rounded-lg border bg-surface px-3 text-sm text-fg shadow-card outline-none placeholder:text-fg-subtle focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none",
+                "h-11 rounded-xl border bg-surface/80 px-3.5 text-sm text-fg shadow-card outline-none placeholder:text-fg-subtle focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none",
                 emailErr ? "border-bad" : "border-border",
               )}
             />
@@ -134,7 +135,7 @@ export function SignInForm({ callbackUrl, initialError, credentials, github }: {
                 aria-invalid={Boolean(pwErr)}
                 aria-describedby={pwErr ? "password-err" : undefined}
                 className={cn(
-                  "h-10 w-full rounded-lg border bg-surface pr-10 pl-3 text-sm text-fg shadow-card outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none",
+                  "h-11 w-full rounded-xl border bg-surface/80 pr-11 pl-3.5 text-sm text-fg shadow-card outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none",
                   pwErr ? "border-bad" : "border-border",
                 )}
               />
@@ -142,7 +143,7 @@ export function SignInForm({ callbackUrl, initialError, credentials, github }: {
                 type="button"
                 onClick={() => setShow((s) => !s)}
                 aria-label={show ? "Hide password" : "Show password"}
-                className="absolute top-1/2 right-1 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-fg-subtle hover:text-fg"
+                className="absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-fg-subtle hover:text-fg"
               >
                 {show ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
               </button>
