@@ -5,7 +5,7 @@ test("landing renders hero, preview and sections", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("ranked before breakfast");
   await expect(page.getByTestId("product-preview")).toBeVisible();
   for (const name of ["how-it-works", "features", "honest", "built-with"]) await expect(page.locator(`#${name}`)).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open dashboard" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get started" }).first()).toBeVisible();
 });
 
 test("landing has no horizontal overflow at 375px", async ({ page }) => {

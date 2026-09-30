@@ -55,7 +55,7 @@ export default async function Home() {
   const canOpen = demo || signedIn;
   const demoLink = demoUrl();
   const jobs = previewJobs ? toPreview(previewJobs) : SAMPLE_JOBS;
-  const primary = canOpen ? { href: "/today", label: "Open dashboard" } : { href: "/signin", label: "Sign in" };
+  const primary = { href: canOpen ? "/today" : "/signin", label: signedIn ? "Open dashboard" : "Get started" };
   const f = stats.funnel;
 
   const stat = [

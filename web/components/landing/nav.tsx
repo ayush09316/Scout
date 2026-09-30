@@ -24,15 +24,15 @@ export function LandingNav({ canOpen, signedIn }: { canOpen: boolean; signedIn: 
         </nav>
         <div className="flex items-center gap-1.5">
           <ThemeToggle compact />
-          {canOpen && !signedIn && (
+          {!signedIn && (
             <Link href="/signin" className="hidden min-h-11 items-center rounded-full px-3 text-[13.5px] text-fg-muted hover:text-fg sm:inline-flex">
               Sign in
             </Link>
           )}
           <Link href={canOpen ? "/today" : "/signin"} className="lx-btn inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-[13.5px] font-medium">
             <span className="shine" aria-hidden />
-            <span>{canOpen ? "Open dashboard" : "Sign in"}</span>
-            {canOpen && <ArrowRight className="size-3.5" aria-hidden />}
+            <span>{signedIn ? "Open dashboard" : "Get started"}</span>
+            <ArrowRight className="size-3.5" aria-hidden />
           </Link>
         </div>
       </div>
