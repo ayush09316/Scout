@@ -6,8 +6,8 @@ import { auth, configuredProviders } from "@/auth";
 import { isOwner } from "@/lib/owner";
 import { signOutAction } from "@/lib/auth-actions";
 import { BrandLink } from "@/components/landing/brand";
-import { LiveRanking } from "@/components/landing/live-ranking";
-import { SAMPLE_JOBS } from "@/components/landing/product-preview";
+import { PanelStack } from "@/components/landing/panel-stack";
+import { EMPTY_STACK } from "@/lib/landing";
 import { Accent } from "@/components/landing/sections";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { isDemo } from "@/lib/env";
@@ -101,8 +101,8 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
               </li>
             ))}
           </ul>
-          <div className="mt-8 max-w-[540px]">
-            <LiveRanking jobs={SAMPLE_JOBS} live={false} compact />
+          <div className="mt-6 max-w-[540px]">
+            <PanelStack data={EMPTY_STACK} panels={["today", "tracker", "job"]} compact />
           </div>
         </div>
       </aside>

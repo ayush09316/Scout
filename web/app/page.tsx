@@ -4,7 +4,7 @@ import { ArrowRight, ChevronRight, Play } from "lucide-react";
 import { auth } from "@/auth";
 import { BrandLink } from "@/components/landing/brand";
 import { LandingNav } from "@/components/landing/nav";
-import { LiveRanking } from "@/components/landing/live-ranking";
+import { PanelStack } from "@/components/landing/panel-stack";
 import { LandingFX, CountUp } from "@/components/landing/motion";
 import { SAMPLE_JOBS, toPreview } from "@/components/landing/product-preview";
 import { RunTerminal } from "@/components/landing/terminal";
@@ -16,7 +16,7 @@ import { demoUrl, isDemo } from "@/lib/env";
 import { isOwner } from "@/lib/owner";
 import { waitlistCount } from "@/lib/waitlist";
 import { REF_RE, SOCIAL_THRESHOLD } from "@/lib/waitlist-options";
-import { getLandingStats, getPreviewJobs, getTrackedCompanies, getTopSkillGaps } from "@/lib/landing";
+import { getLandingStats, getPreviewJobs, getTrackedCompanies, getTopSkillGaps, getStackData } from "@/lib/landing";
 import { getLatestEval } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +54,7 @@ async function safeSession() {
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ ref?: string | string[] }> }) {
   const demo = isDemo();
-  const [session, stats, previewJobs, calibration, companies, sp, gaps] = await Promise.all([demo ? null : safeSession(), getLandingStats(), getPreviewJobs(), safeCalibration(), getTrackedCompanies(), searchParams, getTopSkillGaps()]);
+  const [session, stats, previewJobs, calibration, companies, sp, gaps, stack] = await Promise.all([demo ? null : safeSession(), getLandingStats(), getPreviewJobs(), safeCalibration(), getTrackedCompanies(), searchParams, getTopSkillGaps(), getStackData()]);
   const owner = !demo && isOwner(session);
   const mode = demo ? "demo" : owner ? "owner" : "waitlist";
   const waitlist = mode === "waitlist";
@@ -181,7 +181,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ r
             )}
           </div>
           <div className="lx-rise mx-auto mt-14 w-full max-w-[1040px] [animation-delay:380ms] sm:mt-20">
-            <LiveRanking jobs={jobs} live={Boolean(previewJobs)} />
+            <PanelStack data={stack} owner={owner} />
           </div>
         </section>
 
