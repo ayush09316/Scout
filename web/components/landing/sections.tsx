@@ -489,24 +489,28 @@ export function BuiltWith() {
 
 const FAQS = [
   {
-    q: "Is it free?",
-    a: "Scout is a personal project, not a paid service. It runs on free tiers: a GitHub Actions cron, one Postgres database and one serverless app. LLM scoring runs under a daily cost cap.",
+    q: "Who is Scout for?",
+    a: "Software engineers looking for roles they can do from India — in Indian cities or fully remote. It is tuned for engineering roles today; the waitlist answers decide what comes next.",
   },
   {
-    q: "Where does the job data come from?",
-    a: "Public ATS APIs only: company boards on Greenhouse, Lever and Ashby, plus HN Who's Hiring, Remotive, RemoteOK and Arbeitnow. Nothing is scraped from sites that forbid it.",
+    q: "When do I get access?",
+    a: "Scout is in private beta and used by its builder right now. Invites go out in waitlist order as there is room, and each friend who joins with your link moves you up. There is no fixed launch date yet.",
   },
   {
-    q: "Does it invent resume content?",
-    a: "No. Tailored resumes reorder and rephrase what is already on your resume. Nothing is added that you did not do.",
+    q: "Will it cost money?",
+    a: "Joining the waitlist is free and needs no card. Pricing is not decided — the “Would you pay for this?” answer on the form is exactly how it gets decided.",
   },
   {
-    q: "Where is my API key stored?",
-    a: "In your browser. Your Gemini key is kept in browser storage and sent per request, never saved on the server.",
+    q: "What happens to my waitlist details?",
+    a: "They are used only to contact you about Scout. They are never sold or shared, and the delete link you get after joining removes them for good.",
   },
   {
-    q: "Can I self-host it?",
-    a: "Yes. Self-host it on free tiers with one cron, one database and one serverless app, then sign in. Access is limited to the owner, plus a GitHub allowlist if you configure one.",
+    q: "Where do the jobs come from?",
+    a: "Public job-board APIs only: company boards on Greenhouse, Lever and Ashby, plus HN Who's Hiring, Remotive, RemoteOK and Arbeitnow. Every card links back to the original posting.",
+  },
+  {
+    q: "Does it apply for me or make things up?",
+    a: "Neither. Scout never applies on your behalf, and tailored resumes only reorder and rephrase what is already on yours. Nothing is added that you did not do.",
   },
 ];
 
@@ -514,7 +518,7 @@ export function Faq() {
   return (
     <section aria-labelledby="faq" className={SECTION}>
       <div className="mx-auto grid max-w-[1200px] gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
-        <SectionHeading align="left" id="faq" eyebrow="FAQ" title={<>Questions, <Accent>answered.</Accent></>} body="The short version of how Scout handles your data, your key and your resume." />
+        <SectionHeading align="left" id="faq" eyebrow="FAQ" title={<>Before you <Accent>join.</Accent></>} body="What to expect from the beta, and what happens to your details." />
         <div className="divide-y divide-border border-y border-border" data-reveal>
           {FAQS.map((f) => (
             <details key={f.q} className="group/faq">
