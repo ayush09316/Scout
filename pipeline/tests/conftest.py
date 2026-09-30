@@ -38,6 +38,7 @@ def db_url() -> str:
         conn.exec_driver_sql(SCHEMA.read_text())
         conn.exec_driver_sql(SCHEMA_V2.read_text())
         conn.exec_driver_sql(SCHEMA_V2.with_name("schema_v3.sql").read_text())
+        conn.exec_driver_sql(SCHEMA_V2.with_name("schema_v5.sql").read_text())
     engine.dispose()
     return url
 
@@ -47,7 +48,7 @@ def db(db_url):
     engine = create_engine(db_url)
     with engine.begin() as conn:
         conn.execute(text(
-            "TRUNCATE chat_messages, reminders, interview_packs, resume_variants, skill_gaps, company_stats, salary_estimates, "
+            "TRUNCATE waitlist, chat_messages, reminders, interview_packs, resume_variants, skill_gaps, company_stats, salary_estimates, "
             "job_events, job_versions, settings, eval_reports, cover_notes, labels, runs, feedback, scores, profile, jobs, companies RESTART IDENTITY CASCADE"
         ))
     engine.dispose()

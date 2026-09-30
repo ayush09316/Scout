@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Ellipsis, Keyboard, LogOut, Search } from "lucide-react";
 import { BrandMark } from "./landing/brand";
 import { signOutAction } from "@/lib/auth-actions";
-import { MOBILE_PRIMARY, NAV, NAV_GROUPS } from "./nav-items";
+import { MOBILE_PRIMARY, NAV as ALL_NAV, NAV_GROUPS, OWNER_ONLY } from "./nav-items";
 import { RemindersBell } from "./reminders-bell";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import type { ReminderItem } from "@/lib/intel";
@@ -24,10 +24,11 @@ export function Logo() {
   );
 }
 
-export function AppShell({ children, counts, user, reminders }: { children: React.ReactNode; counts: { inbox: number; labeled: number }; user: string | null; reminders: ReminderItem[] }) {
+export function AppShell({ children, counts, user, reminders }: { children: React.ReactNode; counts: { inbox: number; labeled: number; waitlist: number }; user: string | null; reminders: ReminderItem[] }) {
   const pathname = usePathname();
   const router = useRouter();
   const { setPaletteOpen, setHelpOpen, demo } = useUI();
+  const NAV = demo ? ALL_NAV.filter((n) => !OWNER_ONLY.includes(n.href)) : ALL_NAV;
   const goMap: Record<string, () => void> = {
     "?": () => setHelpOpen(true),
     "/": () => setPaletteOpen(true),
@@ -35,7 +36,7 @@ export function AppShell({ children, counts, user, reminders }: { children: Reac
   for (const n of NAV) goMap[`g ${n.key}`] = () => router.push(n.href);
   useHotkeys(goMap, { global: true });
 
-  const badge = (href: string) => (href === "/today" ? counts.inbox : href === "/label" ? `${counts.labeled}/200` : null);
+  const badge = (href: string) => (href === "/today" ? counts.inbox : href === "/label" ? `${counts.labeled}/200` : href === "/admin/waitlist" ? counts.waitlist : null);
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[232px_1fr]">

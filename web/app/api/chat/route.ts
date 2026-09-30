@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/auth";
+import { ownerSession as auth } from "@/auth";
 import { db } from "@/lib/db";
 import { chatMessages } from "@/lib/db/schema";
 import { isDemo } from "@/lib/env";

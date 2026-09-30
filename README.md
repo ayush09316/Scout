@@ -83,3 +83,11 @@ Demo data for any database: `scout seed-demo --database-url <url>`.
 3. Vercel: import `web/`, set the env vars from `web/.env.example`, then register the webhook:
    `curl "https://api.telegram.org/bot$TOKEN/setWebhook?url=https://<app>/api/telegram&secret_token=$TELEGRAM_WEBHOOK_SECRET"`
 4. Public demo: a second Neon branch seeded with `scout seed-demo`, deployed with `DEMO_MODE=1`.
+
+## Waitlist & owner-only mode
+
+With `DEMO_MODE` off, the dashboard, every app route and every API route (except `/api/auth`, `/api/telegram` with its webhook secret, and the public waitlist) require the **owner**: the credentials user in `SCOUT_OWNER_EMAIL` / `SCOUT_OWNER_PASSWORD_HASH`, or a GitHub login listed in `AUTH_ALLOWED_GITHUB`. Any other signed-in identity is rejected. The owner signs in via the quiet "Sign in" link in the landing nav (`/signin`).
+
+Signed-out visitors see "Join the waitlist" instead. The form stores email plus optional name, role, experience, city, willingness to pay and source in the `waitlist` table (`schema_v5.sql`, alembic `0004_waitlist`). IPs are stored only as `sha256(ip + AUTH_SECRET)`; signups are rate-limited to 5 per 10 minutes per IP and protected by a honeypot. Every signup gets a `/?ref=<code>` link; position ranks by join time minus one day per referral. `/waitlist/leave?code=…&t=<hmac>` lets people delete their entry.
+
+Set `RESEND_API_KEY` and `EMAIL_FROM` to send a confirmation email (optional). The owner reviews signups at `/admin/waitlist` (stats, charts, table, CSV export). `DEMO_MODE=1` still opens the app read-only for a public demo, with the waitlist admin hidden.

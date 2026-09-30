@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, Gauge, KeyRound, Layers, Send } from "lucide-react";
 import { auth, configuredProviders } from "@/auth";
+import { isOwner } from "@/lib/owner";
+import { signOutAction } from "@/lib/auth-actions";
 import { BrandLink } from "@/components/landing/brand";
 import { LiveRanking } from "@/components/landing/live-ranking";
 import { SAMPLE_JOBS } from "@/components/landing/product-preview";
@@ -11,7 +13,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { isDemo } from "@/lib/env";
 import { SignInForm } from "./signin-form";
 
-export const metadata: Metadata = { title: "Sign in", description: "Sign in to your Scout job-hunt copilot." };
+export const metadata: Metadata = { title: "Owner sign in", description: "Owner sign in for Scout. Scout is in private beta — join the waitlist." };
 export const dynamic = "force-dynamic";
 
 const safe = (v?: string) => (v && v.startsWith("/") && !v.startsWith("//") ? v : "/today");
@@ -28,7 +30,8 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
   const { callbackUrl, error } = await searchParams;
   const target = safe(callbackUrl);
   const session = await auth().catch(() => null);
-  if (session) redirect(target);
+  if (isOwner(session)) redirect(target);
+  const foreign = Boolean(session);
   const p = configuredProviders();
   return (
     <div className="lx relative grid min-h-dvh overflow-x-clip lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
@@ -53,14 +56,33 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           </Link>
           <div className="lx-rise lx-glass rounded-[24px] p-6 shadow-[var(--lx-glow)] sm:p-8">
             <h1 className="text-[2rem] leading-[1.05] font-semibold tracking-[-0.04em] text-fg">
-              Sign in to <Accent>Scout</Accent>
+              Owner <Accent>sign in</Accent>
             </h1>
-            <p className="mt-2 text-[14px] text-fg-muted">Your ranked job inbox, tracker and evals.</p>
+            <p className="mt-2 text-[14px] text-fg-muted">
+              Scout is in private beta —{" "}
+              <Link href="/#waitlist" className="font-medium text-fg underline decoration-accent/50 underline-offset-4 hover:decoration-accent">
+                join the waitlist
+              </Link>
+              .
+            </p>
             <div className="mt-7">
-              <SignInForm callbackUrl={target} initialError={error} credentials={p.credentials} github={p.github} />
+              {foreign ? (
+                <div className="flex flex-col gap-4" data-testid="not-owner">
+                  <p role="alert" className="rounded-lg border border-warn/25 bg-warn-soft px-3 py-2.5 text-[13px] text-fg">
+                    You&apos;re signed in, but this account isn&apos;t the owner of this Scout instance.
+                  </p>
+                  <form action={signOutAction}>
+                    <button type="submit" className="lx-btn-2 flex h-11 w-full items-center justify-center rounded-xl text-sm font-medium">
+                      Sign out
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <SignInForm callbackUrl={target} initialError={error === "NotOwner" ? undefined : error} credentials={p.credentials} github={p.github} />
+              )}
             </div>
           </div>
-          <p className="mt-6 text-center text-xs text-fg-subtle">Private instance · access is limited to the owner{p.github ? " and an allowlist" : ""}.</p>
+          <p className="mt-6 text-center text-xs text-fg-subtle">Owner-only instance · everyone else, <Link href="/#waitlist" className="underline underline-offset-4 hover:text-fg-muted">join the waitlist</Link>.</p>
         </div>
       </main>
       <aside aria-label="About Scout" className="relative hidden overflow-hidden border-l border-border lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-center lg:px-12 lg:py-10 xl:px-16">

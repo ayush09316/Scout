@@ -4,6 +4,7 @@ import GitHub from "next-auth/providers/github";
 import Credentials from "next-auth/providers/credentials";
 import { allowedLogins, githubConfigured, ownerConfigured } from "@/lib/env";
 import { safeEqualText, verifyPassword } from "@/lib/password";
+import { isOwner } from "@/lib/owner";
 import { clearFailures, isLimited, recordFailure } from "@/lib/rate-limit";
 
 class RateLimited extends CredentialsSignin {
@@ -69,3 +70,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+export async function ownerSession() {
+  const s = await auth();
+  return isOwner(s) ? s : null;
+}

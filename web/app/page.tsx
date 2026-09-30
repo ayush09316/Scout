@@ -11,7 +11,11 @@ import { RunTerminal } from "@/components/landing/terminal";
 import { TelegramDigest } from "@/components/landing/telegram";
 import { RelativeTime } from "@/components/landing/relative-time";
 import { Accent, Bento, BuiltWith, Faq, Honest, Marquee, Pipeline, SectionHeading } from "@/components/landing/sections";
+import { WaitlistSection } from "@/components/landing/waitlist-section";
 import { demoUrl, isDemo } from "@/lib/env";
+import { isOwner } from "@/lib/owner";
+import { waitlistCount } from "@/lib/waitlist";
+import { REF_RE, SOCIAL_THRESHOLD } from "@/lib/waitlist-options";
 import { getLandingStats, getPreviewJobs, getTrackedCompanies } from "@/lib/landing";
 import { getLatestEval } from "@/lib/queries";
 
@@ -48,14 +52,18 @@ async function safeSession() {
   }
 }
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ ref?: string | string[] }> }) {
   const demo = isDemo();
-  const [session, stats, previewJobs, calibration, companies] = await Promise.all([demo ? null : safeSession(), getLandingStats(), getPreviewJobs(), safeCalibration(), getTrackedCompanies()]);
-  const signedIn = Boolean(session);
-  const canOpen = demo || signedIn;
+  const [session, stats, previewJobs, calibration, companies, sp] = await Promise.all([demo ? null : safeSession(), getLandingStats(), getPreviewJobs(), safeCalibration(), getTrackedCompanies(), searchParams]);
+  const owner = !demo && isOwner(session);
+  const mode = demo ? "demo" : owner ? "owner" : "waitlist";
+  const waitlist = mode === "waitlist";
+  const count = waitlist ? await waitlistCount() : 0;
+  const rawRef = typeof sp.ref === "string" ? sp.ref.trim().toLowerCase() : "";
+  const referral = REF_RE.test(rawRef) ? rawRef : null;
   const demoLink = demoUrl();
   const jobs = previewJobs ? toPreview(previewJobs) : SAMPLE_JOBS;
-  const primary = { href: canOpen ? "/today" : "/signin", label: signedIn ? "Open dashboard" : "Get started" };
+  const primary = waitlist ? { href: "#waitlist", label: "Join the waitlist" } : { href: "/today", label: owner ? "Open dashboard" : "Get started" };
   const f = stats.funnel;
 
   const stat = [
@@ -75,7 +83,7 @@ export default async function Home() {
     : null;
 
   const Primary = ({ size = "lg" }: { size?: "lg" | "md" }) => (
-    <Link href={primary.href} className={`lx-btn inline-flex items-center justify-center gap-2 rounded-full font-medium ${size === "lg" ? "h-12 px-6 text-[15px]" : "h-11 px-5 text-[14px]"}`}>
+    <Link href={primary.href} data-testid="primary-cta" className={`lx-btn inline-flex items-center justify-center gap-2 rounded-full font-medium ${size === "lg" ? "h-12 px-6 text-[15px]" : "h-11 px-5 text-[14px]"}`}>
       <span className="shine" aria-hidden />
       <span>{primary.label}</span>
       <ArrowRight className="size-4" aria-hidden />
@@ -98,7 +106,7 @@ export default async function Home() {
         <div className="lx-dots" />
         <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-b from-transparent to-bg" />
       </div>
-      <LandingNav canOpen={canOpen} signedIn={signedIn} />
+      <LandingNav mode={mode} />
       <main id="main" className="relative">
         <section aria-labelledby="hero" className="relative px-4 pt-12 pb-16 sm:px-6 sm:pt-16 sm:pb-24">
           <div className="mx-auto max-w-[1200px] text-center">
@@ -138,6 +146,12 @@ export default async function Home() {
                 </a>
               )}
             </div>
+            {waitlist && (
+              <p className="lx-rise mt-5 text-[13px] text-fg-subtle [animation-delay:280ms]" data-testid="beta-line">
+                Private beta · currently used by its builder
+                {count >= SOCIAL_THRESHOLD && <> · join {fmt(count)} others on the waitlist</>}
+              </p>
+            )}
             {funnel ? (
               <div className="lx-rise mx-auto mt-12 max-w-[760px] [animation-delay:320ms]" data-testid="stat-strip">
                 <p className="lx-eyebrow">Latest run</p>
@@ -203,6 +217,7 @@ export default async function Home() {
         </section>
 
         <Honest calibration={calibration} />
+        {waitlist && <WaitlistSection referral={referral} count={count} showCount={count >= SOCIAL_THRESHOLD} />}
         <Faq />
         <BuiltWith />
 
@@ -218,7 +233,7 @@ export default async function Home() {
               <h2 id="cta" className="mx-auto max-w-[18ch] text-[2.25rem] leading-[1] font-semibold tracking-[-0.045em] text-balance text-fg sm:text-6xl">
                 Tomorrow&apos;s ten are already being <Accent>ranked.</Accent>
               </h2>
-              <p className="mx-auto mt-5 max-w-md text-[16px] text-fg-muted">Private by default. Self-host it on free tiers, sign in, and start triaging.</p>
+              <p className="mx-auto mt-5 max-w-md text-[16px] text-fg-muted">{waitlist ? "Private beta for now. Join the waitlist and hear first when there’s room." : "Private by default. Self-host it on free tiers, sign in, and start triaging."}</p>
               <div className="mt-9 flex flex-col items-stretch justify-center gap-3 min-[420px]:flex-row min-[420px]:items-center">
                 <Primary />
                 {demoLink && (

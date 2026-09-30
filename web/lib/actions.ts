@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
-import { auth } from "@/auth";
+import { ownerSession as auth } from "@/auth";
 import { db } from "./db";
 import { companies, coverNotes, feedback, interviewPacks, labels, profile, resumeVariants, FEEDBACK_ACTIONS, type FeedbackAction, type Preferences, type PrepPack } from "./db/schema";
 import type { SearchFilters } from "./search";

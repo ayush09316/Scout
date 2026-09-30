@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { ownerSession as auth } from "@/auth";
 import { isDemo } from "./env";
 import { getJob, getProfile } from "./queries";
 
