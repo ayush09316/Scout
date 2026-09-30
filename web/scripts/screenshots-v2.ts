@@ -14,18 +14,6 @@ const shots: Shot[] = [
   { name: "search", path: "/search?q=backend%20python%20payments" },
   { name: "company", path: `/company/${J.company}`, full: true },
   { name: "company-live", path: `/company/${J.live}` },
-  { name: "chat-empty", path: "/chat" },
-  {
-    name: "chat-answer",
-    path: "/chat",
-    act: async (p) => {
-      await p.getByRole("button", { name: "New chat" }).click().catch(() => undefined);
-      await p.getByRole("button", { name: /Which companies hiring in Bengaluru/ }).click();
-      await p.getByTestId("assistant-msg").last().locator(".prose-chat").waitFor({ timeout: 30000 });
-      await p.getByTestId("tool-block").first().locator("button").first().click();
-      await p.waitForTimeout(400);
-    },
-  },
   { name: "job-history", path: `/job/${J.history}`, full: true },
   {
     name: "tailor-drawer",

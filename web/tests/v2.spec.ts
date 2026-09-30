@@ -12,17 +12,6 @@ test("company page shows stats and open roles", async ({ page }) => {
   await expect(page.getByTestId("company-stats")).toContainText("Open roles");
 });
 
-test("chat fallback answers a starter question with a SQL block", async ({ page }) => {
-  await page.goto("/chat");
-  const starter = page.getByRole("button", { name: /What skills am I missing most/ });
-  await expect(starter).toBeEnabled();
-  await starter.click();
-  const msg = page.getByTestId("assistant-msg").last();
-  await expect(msg.getByTestId("model-chip")).toContainText(/Rules router|gemini/);
-  await expect(msg.getByTestId("tool-block").first()).toBeVisible();
-  await expect(msg.locator(".prose-chat")).toContainText(/unlock|gap/i);
-});
-
 test("tailor drawer shows coverage meter and diff", async ({ page }) => {
   await page.goto("/job/2");
   await page.getByTestId("tailor-open").click();

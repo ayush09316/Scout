@@ -1,4 +1,4 @@
-import { BellRing, Braces, Building2, CloudDownload, Code2, Database, FileDiff, FileText, Filter, GitBranch, KeyRound, Layers, MessagesSquare, Plus, Search, Send, ShieldCheck, Sigma, Sparkles, Target, Wallet, Workflow } from "lucide-react";
+import { BellRing, Building2, CloudDownload, Code2, Database, FileDiff, FileText, Filter, GitBranch, KeyRound, Layers, Plus, Search, Send, ShieldCheck, Sigma, Sparkles, Target, Wallet, Workflow } from "lucide-react";
 import type { LandingStats } from "@/lib/landing";
 import { cn } from "@/lib/utils";
 import { CountUp } from "./motion";
@@ -227,17 +227,21 @@ function MiniSalary() {
   );
 }
 
-function MiniChat() {
+function MiniGaps({ gaps }: { gaps: { skill: string; unlocked: number }[] }) {
+  const rows = gaps.length ? gaps.slice(0, 3) : [{ skill: "Go", unlocked: 0 }, { skill: "TypeScript", unlocked: 0 }, { skill: "Kafka", unlocked: 0 }];
+  const max = Math.max(1, ...rows.map((r) => r.unlocked));
   return (
     <div className="flex w-full max-w-[300px] flex-col gap-2 text-[12px]" aria-hidden>
-      <p className="self-end rounded-2xl rounded-br-md bg-fg px-3 py-1.5 text-bg">Which companies grew backend hiring this month?</p>
-      <div className="self-start rounded-2xl rounded-bl-md border border-border bg-surface px-3 py-2 text-fg-muted">
-        <span className="mb-1.5 inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] text-fg-muted">
-          <Braces className="size-3 shrink-0" />
-          <span className="lx-type">Ran SQL · read-only</span>
-        </span>
-        <p>Three boards doubled their open backend roles…</p>
-      </div>
+      {rows.map((r, i) => (
+        <div key={r.skill} className="flex items-center gap-2.5">
+          <span className="w-24 truncate text-fg">{r.skill}</span>
+          <span className="h-1.5 flex-1 rounded-full bg-muted">
+            <span className="lx-grow block h-full rounded-full bg-gradient-to-r from-accent to-[#a855f7]" style={{ width: gaps.length ? `${Math.max(12, (r.unlocked / max) * 100)}%` : `${80 - i * 20}%`, animationDelay: `${i * 120}ms` }} />
+          </span>
+          {gaps.length > 0 && <span className="w-12 text-right font-mono text-[11px] text-good tabular-nums">+{r.unlocked}</span>}
+        </div>
+      ))}
+      <p className="mt-0.5 text-[10px] text-fg-subtle">{gaps.length ? "More matches if you add the skill · from your latest run" : "Ranked by how many matches each skill would unlock"}</p>
     </div>
   );
 }
@@ -317,7 +321,7 @@ function MiniDocs() {
   );
 }
 
-export function Bento() {
+export function Bento({ gaps = [] }: { gaps?: { skill: string; unlocked: number }[] }) {
   return (
     <section aria-labelledby="features" className={SECTION}>
       <SectionHeading
@@ -358,8 +362,8 @@ export function Bento() {
         <Tile i={5} icon={Building2} title="Company intel" body="Open roles, hiring velocity, top skills and remote share for every company you track.">
           <MiniVelocity />
         </Tile>
-        <Tile i={6} icon={MessagesSquare} title="Chat with your job market" body="An agent that answers with read-only SQL behind guardrails, and shows the query it ran.">
-          <MiniChat />
+        <Tile i={6} icon={Sigma} title="Skills to learn" body="Which missing skill would unlock the most new matches for you, recomputed after every run.">
+          <MiniGaps gaps={gaps} />
         </Tile>
         <Tile i={7} icon={FileText} title="Tailored resume + prep packs" body="A resume per job that reorders what you have done, plus questions to prepare for. Follow-up reminders keep threads warm.">
           <MiniDocs />

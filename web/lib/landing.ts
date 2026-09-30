@@ -82,3 +82,13 @@ export async function getTrackedCompanies(): Promise<string[]> {
     return [];
   }
 }
+
+export async function getTopSkillGaps(): Promise<{ skill: string; unlocked: number }[]> {
+  try {
+    const { getSkillGaps } = await import("./intel");
+    const { gaps } = await getSkillGaps(3);
+    return gaps.filter((g) => g.jobsUnlocked > 0).map((g) => ({ skill: g.skill, unlocked: g.jobsUnlocked }));
+  } catch {
+    return [];
+  }
+}

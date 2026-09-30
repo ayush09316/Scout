@@ -37,7 +37,7 @@ export function ApiKeys({ serverKey }: { serverKey: boolean }) {
 
   return (
     <Card id="api-keys" className="scroll-mt-6">
-      <CardHeader title="API keys" description="Bring your own Gemini key to unlock AI tailoring, interview prep, cover notes and chat." action={status} />
+      <CardHeader title="API keys" description="Bring your own Gemini key to unlock AI tailoring, interview prep and cover notes." action={status} />
       <div className="space-y-4 p-4">
         {saved ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2/50 px-3 py-2.5">

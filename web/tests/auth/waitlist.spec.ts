@@ -135,6 +135,6 @@ test("unauthenticated app routes and APIs are locked", async ({ page, request })
   await expect(page).toHaveURL(/\/signin\?callbackUrl=%2Ftoday/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Owner sign in");
   await expect(page.getByRole("link", { name: "join the waitlist" }).first()).toBeVisible();
-  const api = await request.post("/api/chat", { data: {} });
-  expect(api.status()).toBe(401);
+  const res = await request.get("/admin/waitlist/export", { maxRedirects: 0 });
+  expect(res.status()).not.toBe(200);
 });

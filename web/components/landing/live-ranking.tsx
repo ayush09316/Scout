@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Bookmark, Check, Globe, Inbox, MapPin, MessagesSquare, ScanSearch, Search, Settings, SquareKanban, Tags, Wallet } from "lucide-react";
+import { Activity, Bookmark, Check, Globe, Inbox, MapPin, ScanSearch, Search, Settings, SquareKanban, Tags, Wallet } from "lucide-react";
 import { salaryLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { reducedMotion, tween } from "./motion";
@@ -12,7 +12,6 @@ const NAV = [
   { label: "Tracker", icon: SquareKanban },
   { label: "Label", icon: Tags },
   { label: "Search", icon: ScanSearch },
-  { label: "Chat", icon: MessagesSquare },
   { label: "Health", icon: Activity },
   { label: "Settings", icon: Settings },
 ];

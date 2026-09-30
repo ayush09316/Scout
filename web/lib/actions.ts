@@ -183,9 +183,3 @@ export async function snoozeReminder(id: number, days = 3): Promise<ActionResult
   return { ok: true };
 }
 
-export async function getChatHistory(sessionId: string) {
-  if (!isDemo() && !(await auth())) return [];
-  if (!/^[A-Za-z0-9-]{8,64}$/.test(sessionId)) return [];
-  const r = await db.execute(sql`SELECT id, role, content, tool_calls, created_at FROM chat_messages WHERE session_id = ${sessionId} AND role <> 'tool' ORDER BY created_at, id LIMIT 200`);
-  return (r as unknown as { id: string; role: "user" | "assistant"; content: string; tool_calls: unknown[] }[]).map((m) => ({ id: Number(m.id), role: m.role, content: m.content, toolCalls: m.tool_calls ?? [] }));
-}

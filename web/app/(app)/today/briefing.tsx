@@ -1,4 +1,5 @@
-import { ArrowUpDown, CircleSlash, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpDown, CircleSlash, RefreshCw, RotateCcw, Sigma, Sparkles } from "lucide-react";
 import type { Briefing } from "@/lib/queries";
 import { istDateTime } from "@/lib/utils";
 
@@ -20,6 +21,14 @@ export function BriefingStrip({ b }: { b: Briefing }) {
           <span className="font-medium text-fg tabular-nums">{i.label(i.n)}</span>
         </span>
       ))}
+      {b.topGap && (
+        <Link href="/settings#skills-to-learn" className="inline-flex items-center gap-1.5 hover:text-fg">
+          <Sigma className="size-3.5 text-accent" aria-hidden />
+          <span>
+            Learn <span className="font-medium text-fg">{b.topGap.skill}</span> → <span className="font-medium text-good tabular-nums">+{b.topGap.unlocked}</span> matches
+          </span>
+        </Link>
+      )}
       {b.lastRunAt && (
         <span className="inline-flex items-center gap-1.5 text-xs text-fg-subtle sm:ml-auto">
           <RefreshCw className="size-3" aria-hidden />

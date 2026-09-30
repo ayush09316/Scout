@@ -348,15 +348,3 @@ export const reminders = pgTable(
 
 export type ChatRole = "user" | "assistant" | "tool";
 
-export const chatMessages = pgTable(
-  "chat_messages",
-  {
-    id: bigserial("id", { mode: "number" }).primaryKey(),
-    sessionId: text("session_id").notNull(),
-    role: text("role").$type<ChatRole>().notNull(),
-    content: text("content").notNull(),
-    toolCalls: jsonb("tool_calls").$type<unknown[]>().notNull().default([]),
-    createdAt: tz("created_at").notNull().defaultNow(),
-  },
-  (t) => [index("chat_messages_session_idx").on(t.sessionId, t.createdAt)],
-);

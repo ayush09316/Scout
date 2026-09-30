@@ -16,7 +16,7 @@ import { demoUrl, isDemo } from "@/lib/env";
 import { isOwner } from "@/lib/owner";
 import { waitlistCount } from "@/lib/waitlist";
 import { REF_RE, SOCIAL_THRESHOLD } from "@/lib/waitlist-options";
-import { getLandingStats, getPreviewJobs, getTrackedCompanies } from "@/lib/landing";
+import { getLandingStats, getPreviewJobs, getTrackedCompanies, getTopSkillGaps } from "@/lib/landing";
 import { getLatestEval } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +54,7 @@ async function safeSession() {
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ ref?: string | string[] }> }) {
   const demo = isDemo();
-  const [session, stats, previewJobs, calibration, companies, sp] = await Promise.all([demo ? null : safeSession(), getLandingStats(), getPreviewJobs(), safeCalibration(), getTrackedCompanies(), searchParams]);
+  const [session, stats, previewJobs, calibration, companies, sp, gaps] = await Promise.all([demo ? null : safeSession(), getLandingStats(), getPreviewJobs(), safeCalibration(), getTrackedCompanies(), searchParams, getTopSkillGaps()]);
   const owner = !demo && isOwner(session);
   const mode = demo ? "demo" : owner ? "owner" : "waitlist";
   const waitlist = mode === "waitlist";
@@ -187,7 +187,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ r
 
         <Marquee names={companies} total={stats.companies} />
         <Pipeline stats={stats} />
-        <Bento />
+        <Bento gaps={gaps} />
 
         <section aria-labelledby="digest" className="relative scroll-mt-20 px-4 py-24 sm:px-6 sm:py-32 lg:py-36">
           <div className="mx-auto grid max-w-[1200px] items-center gap-14 lg:grid-cols-[1fr_1fr] lg:gap-20">

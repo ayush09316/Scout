@@ -421,7 +421,7 @@ export async function getNavCounts() {
   return rows<{ inbox: number; labeled: number }>(r)[0];
 }
 
-export type Briefing = { lastRunAt: string | null; since: string | null; newMatches: number; salaryChanges: number; reopened: number; closed: number };
+export type Briefing = { lastRunAt: string | null; since: string | null; newMatches: number; salaryChanges: number; reopened: number; closed: number; topGap?: { skill: string; unlocked: number } | null };
 
 export async function getBriefing(): Promise<Briefing> {
   const r = await db.execute(sql`
