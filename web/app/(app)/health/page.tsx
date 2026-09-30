@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui/empty";
 import { getLatestEval, getRuns } from "@/lib/queries";
 import type { RunCounts, ScorerMetrics } from "@/lib/db/schema";
 import { cn, timeAgo } from "@/lib/utils";
-import { CalibrationChart, CostChart, FetchedChart, RunsChart } from "./charts";
+import { CalibrationChart, CostChart, FetchedChart, RunsCard } from "./charts";
 
 export const metadata: Metadata = { title: "Health" };
 
@@ -30,10 +30,12 @@ export default async function HealthPage() {
 
   const runData = runs.map((r) => ({
     day: new Date(r.startedAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }),
+    run: `#${r.id}`,
     fetched: r.counts.fetched ?? 0,
     new: r.counts.new ?? 0,
     scored: r.counts.scored ?? 0,
     cost: r.costUsd,
+    backfill: (r.counts.new ?? 0) >= 1000 && (r.counts.new ?? 0) >= 0.5 * (r.counts.fetched ?? Infinity),
   }));
   const costData = Object.values(
     runData.reduce<Record<string, { day: string; usd: number }>>((m, r) => ((m[r.day] ??= { day: r.day, usd: 0 }).usd += r.cost, m), {}),
@@ -42,8 +44,8 @@ export default async function HealthPage() {
   const tiles = [
     { label: "Last run", value: last ? timeAgo(last.startedAt) + " ago" : "—", sub: last ? last.status : "never", tone: last?.status === "ok" ? "good" : "warn" },
     { label: "Jobs fetched", value: (last?.counts.fetched ?? 0).toLocaleString("en-IN"), sub: `${last?.counts.new ?? 0} new · ${last?.counts.scored ?? 0} scored` },
-    { label: "Spend · 14 runs", value: `$${totalCost.toFixed(3)}`, sub: `$${(totalCost / Math.max(1, runs.length)).toFixed(4)} / run` },
-    { label: "Errors · 14 runs", value: String(errors.length), sub: bySource[0] ? `most from ${bySource[0][0]}` : "all clear" },
+    { label: `Spend · ${runs.length} runs`, value: `$${totalCost.toFixed(3)}`, sub: `$${(totalCost / Math.max(1, runs.length)).toFixed(4)} / run` },
+    { label: `Errors · ${runs.length} runs`, value: String(errors.length), sub: bySource[0] ? `most from ${bySource[0][0]}` : "all clear" },
   ];
 
   const intelKeys: [keyof RunCounts, string][] = [
@@ -106,8 +108,8 @@ export default async function HealthPage() {
                 {last?.timings.length ? (
                   <ul className="space-y-2 p-4">
                     {last.timings.slice(0, 8).map((t) => (
-                      <li key={t.stage} className="grid grid-cols-[96px_1fr_48px] items-center gap-3 text-[13px]">
-                        <span className="truncate text-fg-muted capitalize">{t.stage}</span>
+                      <li key={t.stage} className="grid grid-cols-[minmax(0,128px)_1fr_48px] items-center gap-3 text-[13px]">
+                        <span className="truncate text-fg-muted" title={t.stage}>{t.stage}</span>
                         <span className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
                           <span className="block h-full rounded-full bg-accent/80" style={{ width: `${(t.s / Math.max(...last.timings.map((x) => x.s), 0.001)) * 100}%` }} />
                         </span>
@@ -124,10 +126,7 @@ export default async function HealthPage() {
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
             <Card>
-              <CardHeader title="New vs. scored per run" description="After dedup and hard filters" />
-              <div className="h-60 p-3">
-                <RunsChart data={runData} />
-              </div>
+              <RunsCard data={runData} />
             </Card>
             <Card>
               <CardHeader title="Jobs fetched per run" description="Across all sources" />

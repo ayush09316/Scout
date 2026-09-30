@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { ArrowLeft, Briefcase, CircleCheck, CircleDashed, Clock, ExternalLink, Layers } from "lucide-react";
 import { CompanyLogo } from "@/components/company-logo";
 import { ScoreRing } from "@/components/score-ring";
@@ -21,6 +19,11 @@ import { PrepPack } from "./prep-pack";
 import { JobHistory } from "./history";
 import { cn, pct, timeAgo } from "@/lib/utils";
 import { JobActions } from "./job-actions";
+import { StickyJobHeader } from "./sticky-header";
+import { ScorerChip } from "@/components/scorer-chip";
+import { ReasonLine } from "@/components/reason-chip";
+import { JobDescription } from "@/components/job-description";
+import { humanizeReasons, simLabel } from "@/lib/reasons";
 import { CoverNote } from "./cover-note";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -61,6 +64,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       versions={history.versions}
       current={{ title: job.title, location: job.location, salaryMin: job.salaryMin, salaryMax: job.salaryMax, descriptionMd: job.descriptionMd }}
       currency={job.salaryCurrency ?? "INR"}
+      firstSeenAt={job.firstSeenAt}
     />
   );
 
@@ -73,8 +77,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 
   const breakdown = [
     { label: "Calibrated fit", value: pct(job.fitProb), bar: job.fitProb, hint: "P(good fit) after isotonic calibration" },
-    { label: "LLM fit score", value: job.fitScore == null ? "—" : `${job.fitScore.toFixed(1)}/10`, bar: job.fitScore == null ? null : job.fitScore / 10 },
-    { label: "Embedding similarity", value: job.embedSim == null ? "—" : job.embedSim.toFixed(2), bar: job.embedSim, hint: "Cosine, resume ↔ job (bge-small)" },
+    { label: "Fit score", value: job.fitScore == null ? "—" : `${job.fitScore.toFixed(1)}/10`, bar: job.fitScore == null ? null : job.fitScore / 10 },
+    { label: "Embedding similarity", value: job.embedSim == null ? "—" : `${simLabel(job.embedSim).split(" ")[0]} · ${job.embedSim.toFixed(2)}`, bar: job.embedSim, hint: "Cosine, resume ↔ job (bge-small) · ≥ 0.75 strong, ≥ 0.65 good" },
     { label: "Apply probability", value: pct(job.applyProb), bar: job.applyProb },
     { label: "Final rank score", value: job.finalScore == null ? "—" : job.finalScore.toFixed(2), bar: job.finalScore },
   ];
@@ -86,7 +90,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         Back to Today
       </Link>
 
-      <header className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
+      <StickyJobHeader targetId="job-header" title={job.title} company={job.companyName} fit={job.fitProb}>
+        <JobActions key={`c-${fb[0]?.action ?? "none"}`} jobId={job.id} url={job.url} lastAction={fb[0]?.action ?? null} compact />
+      </StickyJobHeader>
+      <header id="job-header" className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
         <CompanyLogo name={job.companyName} domain={job.companyDomain} size={52} />
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">{job.title}</h1>
@@ -117,7 +124,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:items-end">
-          <JobActions jobId={job.id} url={job.url} lastAction={fb[0]?.action ?? null} />
+          <JobActions key={`m-${fb[0]?.action ?? "none"}`} jobId={job.id} url={job.url} lastAction={fb[0]?.action ?? null} />
           <TailorDrawer jobId={job.id} original={prof?.resumeMd ?? null} initial={savedVariant} />
         </div>
       </header>
@@ -126,9 +133,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
         {inInterview && prep}
         <Card className="min-w-0 p-5 sm:p-7">
-          <article className="prose-job text-sm">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{job.descriptionMd || "_No description available._"}</ReactMarkdown>
-          </article>
+          <JobDescription md={job.descriptionMd} source={job.source} />
           <div className="mt-8 border-t border-border pt-4">
             <a href={job.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline">
               View original posting
@@ -146,10 +151,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               <ScoreRing value={job.fitProb} size={64} stroke={5} />
               <div className="min-w-0">
                 <p className="text-lg font-semibold tracking-tight">{job.fitProb == null ? "Not scored yet" : `${Math.round(job.fitProb * 100)}% fit`}</p>
-                <p className="text-xs text-fg-muted">
+                <p className="flex flex-wrap items-center gap-1 text-xs text-fg-muted">
                   {job.model ? (
                     <>
-                      Scored by <span className="font-mono text-fg">{job.model}</span>
+                      Scored by <ScorerChip model={job.model} />
                       {job.latencyMs != null && ` in ${job.latencyMs}ms`} · profile v{job.profileVersion}
                     </>
                   ) : (
@@ -187,10 +192,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               <div className="border-t border-border p-4">
                 <h3 className="mb-2 text-xs font-medium text-fg-subtle">Why it ranked here</h3>
                 <ul className="space-y-1.5">
-                  {job.reasons.map((r) => (
-                    <li key={r} className="flex gap-2 text-[13px] text-fg-muted">
-                      <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-good" aria-hidden />
-                      {r}
+                  {humanizeReasons(job.reasons).map((r) => (
+                    <li key={r.key}>
+                      <ReasonLine reason={r} />
                     </li>
                   ))}
                 </ul>

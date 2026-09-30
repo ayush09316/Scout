@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   title: { absolute: TITLE },
   description: DESCRIPTION,
   openGraph: { title: TITLE, description: DESCRIPTION, type: "website", siteName: "Scout", locale: "en_IN" },
-  twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
 const fmt = (n: number) => new Intl.NumberFormat("en-IN").format(n);

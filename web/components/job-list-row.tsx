@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CompanyLogo } from "./company-logo";
 import { ScoreRing } from "./score-ring";
-import { LocationChips } from "./job-chips";
+import { LocationChips, SkillChips } from "./job-chips";
 import { SalaryBadge } from "./salary";
 import { ChangeBadges } from "./change-badges";
 import type { JobListItem } from "@/lib/queries";
@@ -30,6 +30,7 @@ export function JobListRow({ job, extra, hideCompany, className }: { job: JobLis
             <LocationChips location={job.location} remote={job.remote} />
             <SalaryBadge salary={job.salary} />
             <ChangeBadges badges={job.badges} />
+            {job.reasons.length > 0 && <SkillChips reasons={job.reasons} missing={[]} maxReasons={1} inline />}
           </div>
           {extra}
         </div>

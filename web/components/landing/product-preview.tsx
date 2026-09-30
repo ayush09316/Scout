@@ -1,3 +1,4 @@
+import { humanizeReasons } from "@/lib/reasons";
 import type { Salary } from "@/lib/format";
 import type { JobListItem } from "@/lib/queries";
 
@@ -12,6 +13,8 @@ export type PreviewJob = {
   salary: Salary | null;
   reasons: string[];
   missing: string[];
+  score?: number;
+  posted?: string | null;
 };
 
 export const SAMPLE_JOBS: PreviewJob[] = [
@@ -63,8 +66,10 @@ export function toPreview(jobs: JobListItem[]): PreviewJob[] {
     seniority: j.seniority,
     fit: j.fitProb ?? 0,
     salary: j.salary,
-    reasons: j.reasons,
+    reasons: humanizeReasons(j.reasons).map((r) => r.text),
     missing: j.missingSkills,
+    score: j.finalScore ?? j.fitProb ?? 0,
+    posted: j.postedAt ?? j.firstSeenAt,
   }));
 }
 

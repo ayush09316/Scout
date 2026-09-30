@@ -35,3 +35,21 @@ export function initials(name: string) {
 export function formatDateTime(d: string | Date) {
   return new Date(d).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function istParts(d: string | Date) {
+  const t = new Date(new Date(d).getTime() + 330 * 60000);
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth(), d: t.getUTCDate(), h: t.getUTCHours(), min: t.getUTCMinutes() };
+}
+
+export function istDate(d: string | Date, withYear = false) {
+  const p = istParts(d);
+  return `${p.d} ${MONTHS[p.m]}${withYear ? ` ${p.y}` : ""}`;
+}
+
+export function istDateTime(d: string | Date) {
+  const p = istParts(d);
+  const h12 = p.h % 12 || 12;
+  return `${p.d} ${MONTHS[p.m]}, ${h12}:${String(p.min).padStart(2, "0")} ${p.h < 12 ? "am" : "pm"} IST`;
+}

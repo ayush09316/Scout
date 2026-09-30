@@ -9,12 +9,17 @@ import { Stat } from "@/components/company-card";
 import { JobListRow } from "@/components/job-list-row";
 import { getCompanyIntel, getCompanyJobs } from "@/lib/intel";
 import { lpa } from "@/lib/format";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, istDate } from "@/lib/utils";
+import { getFirstRunAt } from "@/lib/queries";
 import { VelocityChart } from "./velocity-chart";
 
 export async function generateMetadata({ params }: { params: Promise<{ key: string }> }): Promise<Metadata> {
   const intel = await getCompanyIntel((await params).key).catch(() => null);
   return { title: intel?.name ?? "Company" };
+}
+
+function trackingDays(since: number) {
+  return (Date.now() - since) / 86400000;
 }
 
 const SEN_ORDER = ["intern", "junior", "mid", "senior", "staff", "principal", "lead", "manager", "unknown"];
@@ -23,7 +28,10 @@ export default async function CompanyPage({ params }: { params: Promise<{ key: s
   const key = decodeURIComponent((await params).key);
   const intel = await getCompanyIntel(key);
   if (!intel) notFound();
-  const jobs = await getCompanyJobs(key);
+  const [jobs, firstRun] = await Promise.all([getCompanyJobs(key), getFirstRunAt().catch(() => null)]);
+  const sinceMs = firstRun ? new Date(firstRun).getTime() : null;
+  const young = sinceMs != null && trackingDays(sinceMs) < 30;
+  const velocity = sinceMs == null ? intel.velocity : intel.velocity.filter((v) => new Date(`${v.week}T00:00:00Z`).getTime() + 7 * 86400000 > sinceMs);
   const mixTotal = Object.values(intel.seniorityMix).reduce((a, b) => a + b, 0);
   const ix = (k: string) => (SEN_ORDER.indexOf(k) < 0 ? 98 : SEN_ORDER.indexOf(k));
   const mix = Object.entries(intel.seniorityMix).sort((a, b) => ix(a[0]) - ix(b[0]));
@@ -51,10 +59,10 @@ export default async function CompanyPage({ params }: { params: Promise<{ key: s
           <Stat label="Open roles" value={intel.openJobs} sub={`${intel.matches} good matches`} />
         </Card>
         <Card className="px-4 py-3">
-          <Stat label="Opened · 30d" value={<span className="text-good">+{intel.opened30d}</span>} />
+          <Stat label={young ? `Opened · since ${istDate(firstRun!)}` : "Opened · 30d"} value={<span className="text-good">+{intel.opened30d}</span>} />
         </Card>
         <Card className="px-4 py-3">
-          <Stat label="Closed · 30d" value={intel.closed30d} />
+          <Stat label={young ? `Closed · since ${istDate(firstRun!)}` : "Closed · 30d"} value={intel.closed30d} />
         </Card>
         <Card className="px-4 py-3">
           <Stat label="Remote share" value={`${Math.round(intel.remoteShare * 100)}%`} />
@@ -66,10 +74,18 @@ export default async function CompanyPage({ params }: { params: Promise<{ key: s
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] [&>*]:min-w-0">
         <Card>
-          <CardHeader title="Hiring velocity" description="Postings opened vs closed per week · last 12 weeks" />
+          <CardHeader
+            title="Hiring velocity"
+            description={firstRun ? `Postings opened vs closed per week · tracking since ${istDate(firstRun, true)}` : "Postings opened vs closed per week · last 12 weeks"}
+          />
           <div className="h-56 p-3">
-            <VelocityChart data={intel.velocity} />
+            <VelocityChart data={velocity} since={firstRun ? istDate(firstRun) : null} />
           </div>
+          {firstRun && (
+            <p className="border-t border-border px-4 py-2 text-[11px] text-fg-subtle" data-testid="tracking-since">
+              Scout started tracking on {istDate(firstRun, true)}. Roles already open that day are the baseline, so they aren’t counted as opened.
+            </p>
+          )}
         </Card>
         <div className="flex flex-col gap-4">
           <Card>

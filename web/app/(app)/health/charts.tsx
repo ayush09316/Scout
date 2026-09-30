@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Switch } from "@/components/ui/switch";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from "recharts";
 
 const C1 = "var(--accent)";
@@ -7,11 +9,11 @@ const C2 = "oklch(0.7 0.12 195)";
 const axis = { stroke: "var(--fg-subtle)", fontSize: 11, tickLine: false, axisLine: false } as const;
 const grid = <CartesianGrid stroke="var(--border)" strokeDasharray="0" vertical={false} />;
 
-function Tip({ active, payload, label, fmt }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string; fmt?: (v: number) => string }) {
+function Tip({ active, payload, label, fmt, labelOf }: { active?: boolean; payload?: { name: string; value: number; color: string; payload?: Record<string, string> }[]; label?: string; fmt?: (v: number) => string; labelOf?: (p: Record<string, string> | undefined) => string | undefined }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-pop">
-      <p className="mb-1 font-medium text-fg">{label}</p>
+      <p className="mb-1 font-medium text-fg">{labelOf?.(payload[0]?.payload) ?? label}</p>
       {payload.map((p) => (
         <p key={p.name} className="flex items-center gap-2 text-fg-muted">
           <span className="size-2 rounded-full" style={{ background: p.color }} />
@@ -23,16 +25,57 @@ function Tip({ active, payload, label, fmt }: { active?: boolean; payload?: { na
   );
 }
 
-type RunDatum = { day: string; fetched: number; new: number; scored: number };
+type RunDatum = { day: string; run?: string; fetched: number; new: number; scored: number; backfill?: boolean };
 
-export function RunsChart({ data }: { data: RunDatum[] }) {
+export function RunsCard({ data }: { data: RunDatum[] }) {
+  const [withFirst, setWithFirst] = useState(false);
+  const [log, setLog] = useState(false);
+  const hasBackfill = data.some((d) => d.backfill);
+  const shown = withFirst ? data : data.filter((d) => !d.backfill);
+  const hidden = data.length - shown.length;
+  return (
+    <>
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-border px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-fg">New vs. scored per run</h2>
+          <p className="mt-0.5 text-xs text-fg-muted">After dedup and hard filters{hidden ? ` · first backfill run hidden` : ""}</p>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-fg-muted">
+          {hasBackfill && (
+            <label className="flex min-h-8 cursor-pointer items-center gap-2">
+              <Switch checked={withFirst} onCheckedChange={setWithFirst} aria-label="Include first run" />
+              Include first run
+            </label>
+          )}
+          <label className="flex min-h-8 cursor-pointer items-center gap-2">
+            <Switch checked={log} onCheckedChange={setLog} aria-label="Log scale" />
+            Log
+          </label>
+        </div>
+      </div>
+      <div className="h-60 p-3">
+        <RunsChart data={shown} log={log} />
+      </div>
+    </>
+  );
+}
+
+export function RunsChart({ data, log }: { data: RunDatum[]; log?: boolean }) {
+  const d = log ? data.map((x) => ({ ...x, new: x.new || 0.9, scored: x.scored || 0.9 })) : data;
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} barGap={2} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <BarChart data={d} barGap={2} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         {grid}
-        <XAxis dataKey="day" {...axis} interval="preserveStartEnd" minTickGap={16} />
-        <YAxis {...axis} width={44} tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : `${v}`)} />
-        <Tooltip content={<Tip />} cursor={{ fill: "var(--muted)", opacity: 0.6 }} />
+        <XAxis dataKey={data[0]?.run ? "run" : "day"} {...axis} interval="preserveStartEnd" minTickGap={12} />
+        <YAxis
+          {...axis}
+          width={44}
+          scale={log ? "log" : "auto"}
+          domain={log ? [0.9, "auto"] : [0, "auto"]}
+          allowDataOverflow={log}
+          tickFormatter={(v: number) => (v < 1 ? "0" : v >= 1000 ? `${Math.round(v / 100) / 10}k` : `${Math.round(v)}`)}
+        />
+        <Tooltip content={<Tip labelOf={(p) => (p?.day ? `Run ${p.run ?? ""} · ${p.day}` : undefined)} fmt={(v) => (v < 1 ? "0" : Math.round(v).toLocaleString("en-IN"))} />} cursor={{ fill: "var(--muted)", opacity: 0.6 }} />
         <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} formatter={(v: string) => <span style={{ color: "var(--fg-muted)" }}>{v}</span>} />
         <Bar dataKey="new" name="new" fill={C1} radius={[4, 4, 0, 0]} maxBarSize={14} />
         <Bar dataKey="scored" name="scored" fill={C2} radius={[4, 4, 0, 0]} maxBarSize={14} />
@@ -52,9 +95,9 @@ export function FetchedChart({ data }: { data: RunDatum[] }) {
           </linearGradient>
         </defs>
         {grid}
-        <XAxis dataKey="day" {...axis} interval="preserveStartEnd" minTickGap={16} />
+        <XAxis dataKey={data[0]?.run ? "run" : "day"} {...axis} interval="preserveStartEnd" minTickGap={12} />
         <YAxis {...axis} width={48} domain={[(min: number) => Math.floor((min - 100) / 500) * 500, (max: number) => Math.ceil((max + 100) / 500) * 500]} tickCount={5} tickFormatter={(v: number) => `${(v / 1000).toFixed(1)}k`} allowDecimals={false} />
-        <Tooltip content={<Tip />} cursor={{ stroke: "var(--border-strong)" }} />
+        <Tooltip content={<Tip labelOf={(p) => (p?.day ? `Run ${p.run ?? ""} · ${p.day}` : undefined)} />} cursor={{ stroke: "var(--border-strong)" }} />
         <Area type="monotone" dataKey="fetched" name="fetched" stroke={C1} strokeWidth={2} fill="url(#fetchedFill)" activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--surface)" }} />
       </AreaChart>
     </ResponsiveContainer>

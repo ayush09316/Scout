@@ -20,7 +20,7 @@ export function ThemeToggle({ compact }: { compact?: boolean }) {
       <button
         onClick={() => setTheme(next)}
         aria-label="Toggle theme"
-        className="inline-flex size-9 items-center justify-center rounded-lg text-fg-muted hover:bg-muted hover:text-fg"
+        className="inline-flex size-11 items-center justify-center rounded-lg text-fg-muted hover:bg-muted hover:text-fg"
       >
         {mounted && resolvedTheme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
       </button>

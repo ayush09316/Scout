@@ -332,11 +332,34 @@ function sumOf(v: unknown, keys: string[]): number | undefined {
   return vals.length ? vals.reduce((a, b) => a + b, 0) : undefined;
 }
 
+const STAGE_LABELS: Record<string, string> = {
+  fetch: "Fetch",
+  dedup: "Dedup",
+  embed: "Embed",
+  score: "Score",
+  salary: "Salary est.",
+  skill_gaps: "Skill gaps",
+  company_stats: "Company stats",
+  reminders: "Reminders",
+  reminders_sent: "Reminders sent",
+  digest_lines: "Digest",
+  workable_from_india: "India filter",
+  normalize: "Normalize",
+  notify: "Notify",
+  tracking: "Tracking",
+};
+
+export function stageLabel(key: string) {
+  if (STAGE_LABELS[key]) return STAGE_LABELS[key];
+  const t = key.replace(/_/g, " ");
+  return t[0]?.toUpperCase() + t.slice(1);
+}
+
 export function stageTimings(raw: unknown): { stage: string; s: number }[] {
   const c = (raw ?? {}) as Record<string, unknown>;
   return Object.entries(c)
     .filter(([k, v]) => k.endsWith("_s") && typeof v === "number" && k !== "duration_s")
-    .map(([k, v]) => ({ stage: k.slice(0, -2).replace(/_/g, " "), s: v as number }))
+    .map(([k, v]) => ({ stage: stageLabel(k.slice(0, -2)), s: v as number }))
     .sort((a, b) => b.s - a.s);
 }
 
@@ -396,4 +419,36 @@ export async function getNavCounts() {
          AND EXISTS (SELECT 1 FROM scores s WHERE s.job_id = j.id AND s.profile_version = (SELECT MAX(version) FROM profile))) AS inbox,
       (SELECT COUNT(*)::int FROM labels) AS labeled`);
   return rows<{ inbox: number; labeled: number }>(r)[0];
+}
+
+export type Briefing = { lastRunAt: string | null; since: string | null; newMatches: number; salaryChanges: number; reopened: number; closed: number };
+
+export async function getBriefing(): Promise<Briefing> {
+  const r = await db.execute(sql`
+    WITH r AS (SELECT started_at, finished_at FROM runs WHERE status = 'ok' AND finished_at IS NOT NULL ORDER BY started_at DESC LIMIT 1),
+    cs AS (SELECT DISTINCT job_id FROM scores WHERE profile_version = (SELECT COALESCE(MAX(version), 0) FROM profile)),
+    tr AS (SELECT DISTINCT ON (job_id) job_id, action FROM feedback WHERE action IN ('saved','applied','interview','offer','rejected') ORDER BY job_id, at DESC, id DESC)
+    SELECT
+      (SELECT started_at FROM r) AS since,
+      (SELECT finished_at FROM r) AS last_run,
+      (SELECT COUNT(*)::int FROM jobs j JOIN cs ON cs.job_id = j.id, r WHERE j.first_seen_at >= r.started_at AND j.is_canonical AND j.closed_at IS NULL) AS new_matches,
+      (SELECT COUNT(DISTINCT e.job_id)::int FROM job_events e, r WHERE e.kind = 'salary_changed' AND e.at >= r.started_at
+         AND (e.job_id IN (SELECT job_id FROM cs) OR e.job_id IN (SELECT job_id FROM tr))) AS salary_changes,
+      (SELECT COUNT(DISTINCT e.job_id)::int FROM job_events e JOIN tr ON tr.job_id = e.job_id AND tr.action IN ('saved','applied','interview','offer'), r WHERE e.kind = 'reopened' AND e.at >= r.started_at) AS reopened,
+      (SELECT COUNT(DISTINCT e.job_id)::int FROM job_events e JOIN tr ON tr.job_id = e.job_id AND tr.action IN ('saved','applied','interview','offer'), r WHERE e.kind = 'closed' AND e.at >= r.started_at) AS closed`);
+  const x = rows<{ since: Date | null; last_run: Date | null; new_matches: number | null; salary_changes: number | null; reopened: number | null; closed: number | null }>(r)[0];
+  return {
+    since: iso(x?.since ?? null),
+    lastRunAt: iso(x?.last_run ?? null),
+    newMatches: x?.new_matches ?? 0,
+    salaryChanges: x?.salary_changes ?? 0,
+    reopened: x?.reopened ?? 0,
+    closed: x?.closed ?? 0,
+  };
+}
+
+
+export async function getFirstRunAt(): Promise<string | null> {
+  const r = await db.execute(sql`SELECT MIN(started_at) AS at FROM runs`);
+  return iso(rows<{ at: Date | null }>(r)[0]?.at ?? null);
 }

@@ -42,7 +42,7 @@ export function RemindersBell({ items, className }: { items: ReminderItem[]; cla
       <PopoverTrigger
         aria-label={list.length ? `${list.length} reminders due` : "Reminders"}
         data-testid="reminders-bell"
-        className={cn("relative inline-flex size-9 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-muted hover:text-fg data-[state=open]:bg-muted", className)}
+        className={cn("relative inline-flex size-11 md:size-9 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-muted hover:text-fg data-[state=open]:bg-muted", className)}
       >
         <Bell className="size-4" aria-hidden />
         {list.length > 0 && (
@@ -59,7 +59,8 @@ export function RemindersBell({ items, className }: { items: ReminderItem[]; cla
         {list.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
             <BellOff className="size-5 text-fg-subtle" aria-hidden />
-            <p className="text-[13px] text-fg-muted">Follow-ups and prep nudges for tracked jobs show up here.</p>
+            <p className="font-serif text-lg text-fg italic">Nothing due. Enjoy it.</p>
+            <p className="text-[13px] text-fg-muted">When you apply, Scout nudges you to follow up after a week, and to prep before interviews. They’ll show up here.</p>
           </div>
         ) : (
           <ul className="max-h-[min(70vh,460px)] divide-y divide-border overflow-y-auto" data-testid="reminders-list">

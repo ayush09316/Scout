@@ -5,7 +5,7 @@ type Variant = "primary" | "secondary" | "ghost" | "outline" | "danger";
 type Size = "sm" | "md" | "icon" | "icon-sm";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-fg hover:bg-accent-hover shadow-card",
+  primary: "btn-primary bg-accent text-accent-fg shadow-card",
   secondary: "bg-muted text-fg hover:bg-border",
   outline: "border border-border bg-surface text-fg hover:bg-surface-2 hover:border-border-strong shadow-card",
   ghost: "text-fg-muted hover:bg-muted hover:text-fg",
@@ -13,10 +13,10 @@ const variants: Record<Variant, string> = {
 };
 
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-[13px] gap-1.5",
-  md: "h-9 px-4 text-sm gap-2",
-  icon: "h-9 w-9",
-  "icon-sm": "h-8 w-8",
+  sm: "h-8 px-3 text-[13px] gap-1.5 pointer-coarse:h-11",
+  md: "h-9 px-4 text-sm gap-2 pointer-coarse:h-11",
+  icon: "h-9 w-9 pointer-coarse:size-11",
+  "icon-sm": "h-8 w-8 pointer-coarse:size-11",
 };
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size };

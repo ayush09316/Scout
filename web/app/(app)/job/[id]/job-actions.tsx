@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 const stages: FeedbackAction[] = ["saved", "applied", "interview", "offer", "rejected"];
 
-export function JobActions({ jobId, url, lastAction }: { jobId: number; url: string; lastAction: FeedbackAction | null }) {
+export function JobActions({ jobId, url, lastAction, compact = false }: { jobId: number; url: string; lastAction: FeedbackAction | null; compact?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [state, setState] = useState(lastAction);
@@ -28,33 +28,37 @@ export function JobActions({ jobId, url, lastAction }: { jobId: number; url: str
       }
     });
 
-  useHotkeys({ u: () => act("up"), d: () => act("down"), s: () => act("saved"), a: () => act("applied"), Escape: () => router.back() });
+  useHotkeys({ u: () => act("up"), d: () => act("down"), s: () => act("saved"), a: () => act("applied"), Escape: () => router.back() }, { enabled: !compact });
 
   return (
     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+      {!compact && (
+        <>
       <Button size="icon" variant="outline" aria-label="Good match" aria-pressed={state === "up"} disabled={pending} onClick={() => act("up")} className={cn(state === "up" && "border-good/40 bg-good-soft text-good")}>
         <ThumbsUp />
       </Button>
       <Button size="icon" variant="outline" aria-label="Not a fit" aria-pressed={state === "down"} disabled={pending} onClick={() => act("down")} className={cn(state === "down" && "border-bad/40 bg-bad-soft text-bad")}>
         <ThumbsDown />
       </Button>
+        </>
+      )}
       {state && stages.includes(state) && state !== "saved" ? (
         <Select
           ariaLabel="Tracker stage"
           value={state}
           onChange={(v) => act(v as FeedbackAction)}
           options={stages.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) }))}
-          className="h-9 min-w-32 text-sm font-medium"
+          className={cn("min-w-32 text-sm font-medium", compact ? "h-8 min-w-28" : "h-9")}
         />
       ) : (
-        <Button variant="outline" disabled={pending} onClick={() => act("saved")} aria-pressed={state === "saved"} className={cn(state === "saved" && "border-accent/40 bg-accent-soft text-accent-soft-fg")}>
+        <Button variant="outline" size={compact ? "sm" : "md"} disabled={pending} onClick={() => act("saved")} aria-pressed={state === "saved"} className={cn(state === "saved" && "border-accent/40 bg-accent-soft text-accent-soft-fg")}>
           <Bookmark className={cn(state === "saved" && "fill-current")} />
-          {state === "saved" ? "Saved" : "Save"}
+          <span className={cn(compact && "max-sm:sr-only")}>{state === "saved" ? "Saved" : "Save"}</span>
         </Button>
       )}
-      <Button variant="primary" disabled={pending} onClick={() => act("applied")}>
+      <Button variant="primary" size={compact ? "sm" : "md"} disabled={pending} onClick={() => act("applied")}>
         <Send />
-        Apply
+        <span className={cn(compact && "max-sm:sr-only")}>Apply</span>
       </Button>
     </div>
   );

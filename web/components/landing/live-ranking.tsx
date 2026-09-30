@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, Bookmark, Check, Globe, Inbox, MapPin, MessagesSquare, ScanSearch, Search, Settings, SquareKanban, Tags, Wallet } from "lucide-react";
 import { salaryLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -24,11 +24,22 @@ const KEYS = [
   { k: "A", label: "apply" },
 ];
 
-type State = { shown: number; ranked: boolean; focus: number; key: string | null; toast: boolean; saved: number | null; scoring: boolean };
+type State = { shown: number; ranked: boolean; sorting: boolean; focus: number; key: string | null; toast: boolean; saved: number | null; scoring: boolean };
 
-const FINAL = (n: number): State => ({ shown: n, ranked: true, focus: 0, key: null, toast: false, saved: null, scoring: false });
+const FINAL = (n: number): State => ({ shown: n, ranked: true, sorting: false, focus: 0, key: null, toast: false, saved: null, scoring: false });
 
 const ARRIVAL: Record<number, number[]> = { 1: [0], 2: [1, 0], 3: [1, 2, 0], 4: [2, 0, 3, 1] };
+
+function arrivalOrder(list: PreviewJob[]) {
+  const n = list.length;
+  const idx = list.map((_, i) => i);
+  if (!list.every((j) => j.posted)) return ARRIVAL[n] ?? idx;
+  const byTime = [...idx].sort((a, b) => new Date(list[b].posted!).getTime() - new Date(list[a].posted!).getTime() || a - b);
+  const same = (xs: number[]) => xs.every((x, i) => x === i);
+  if (same(byTime)) return ARRIVAL[n] ?? [...idx].reverse();
+  if (byTime.filter((x, i) => x === i).length > Math.floor(n / 2)) return ARRIVAL[n] ?? byTime;
+  return byTime;
+}
 
 function Ring({ value, on, size }: { value: number; on: boolean; size: number }) {
   const [v, setV] = useState(value);
@@ -60,19 +71,29 @@ function Ring({ value, on, size }: { value: number; on: boolean; size: number })
   );
 }
 
-function Row({ job, pos, visible, focused, saved }: { job: PreviewJob; pos: number; visible: boolean; focused: boolean; saved: boolean }) {
-  const loc = job.location?.replace(/^Remote\s*/i, "").replace(/[()]/g, "").trim();
+function Row({ job, pos, visible, focused, saved, moving, delay, rank }: { job: PreviewJob; pos: number; visible: boolean; focused: boolean; saved: boolean; moving: boolean; delay: number; rank: number | null }) {
+  const loc = job.location?.replace(/^Remote\s*/i, "").replace(/[()]/g, "").replace(/^[\s,;·-]+|[\s,;·-]+$/g, "").trim();
   return (
     <div
-      className="absolute inset-x-0 top-0 px-0.5 transition-[transform,opacity] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
-      style={{ height: "var(--row)", transform: `translateY(calc(var(--row) * ${pos} + ${visible ? 0 : 14}px)) scale(${visible ? 1 : 0.98})`, opacity: visible ? 1 : 0 }}
+      data-testid="live-row"
+      className="absolute inset-x-0 top-0 px-0.5 transition-[transform,opacity] duration-[900ms] ease-[cubic-bezier(0.65,0,0.35,1)] will-change-transform"
+      style={{
+        height: "var(--row)",
+        zIndex: moving ? 10 : 1,
+        transitionDelay: `${delay}ms`,
+        transform: `translateY(calc(var(--row) * ${pos} + ${visible ? 0 : 14}px)) scale(${!visible ? 0.98 : moving ? 1.025 : 1})`,
+        opacity: visible ? 1 : 0,
+      }}
     >
       <div
         className={cn(
           "relative flex h-[calc(var(--row)-8px)] items-center gap-3 rounded-xl border bg-surface px-3 transition-[border-color,box-shadow] duration-300 sm:gap-4 sm:px-4",
-          focused ? "border-accent/50 shadow-[0_0_0_3px_var(--accent-soft),0_12px_30px_-14px_rgb(99_102_241/0.55)]" : "border-border",
+          focused ? "border-accent/50 shadow-[0_0_0_3px_var(--accent-soft),0_12px_30px_-14px_rgb(99_102_241/0.55)]" : moving ? "border-accent/30 shadow-[0_18px_40px_-18px_rgb(99_102_241/0.6)]" : "border-border",
         )}
       >
+        <span className={cn("w-5 shrink-0 text-center font-mono text-[11px] font-semibold tabular-nums transition-colors duration-300", rank == null ? "text-fg-subtle/0" : rank === 1 ? "text-accent" : "text-fg-subtle")}>
+          {rank == null ? "·" : `#${rank}`}
+        </span>
         <span aria-hidden className={cn("absolute top-3 bottom-3 -left-px w-[3px] rounded-full bg-accent transition-opacity duration-300", focused ? "opacity-100" : "opacity-0")} />
         <Ring value={job.fit} on={visible} size={42} />
         <div className="min-w-0 flex-1">
@@ -119,9 +140,9 @@ function Row({ job, pos, visible, focused, saved }: { job: PreviewJob; pos: numb
 }
 
 export function LiveRanking({ jobs, live, compact }: { jobs: PreviewJob[]; live: boolean; compact?: boolean }) {
-  const list = [...jobs].sort((a, b) => b.fit - a.fit).slice(0, compact ? 3 : 4);
+  const list = useMemo(() => [...jobs].sort((a, b) => (b.score ?? b.fit) - (a.score ?? a.fit) || b.fit - a.fit).slice(0, compact ? 3 : 4), [jobs, compact]);
   const n = list.length;
-  const arrival = ARRIVAL[n] ?? list.map((_, i) => i);
+  const arrival = useMemo(() => arrivalOrder(list), [list]);
   const [s, setS] = useState<State>(FINAL(n));
 
   useEffect(() => {
@@ -131,11 +152,14 @@ export function LiveRanking({ jobs, live, compact }: { jobs: PreviewJob[]; live:
     const at = (ms: number, patch: Partial<State> | ((p: State) => Partial<State>)) =>
       timers.push(setTimeout(() => alive && setS((p) => ({ ...p, ...(typeof patch === "function" ? patch(p) : patch) })), ms));
     const cycle = () => {
-      at(0, { shown: 0, ranked: false, focus: -1, key: null, toast: false, saved: null, scoring: true });
+      at(0, { shown: 0, ranked: false, sorting: false, focus: -1, key: null, toast: false, saved: null, scoring: true });
       for (let i = 0; i < n; i++) at(500 + i * 450, { shown: i + 1 });
-      let t = 500 + n * 450 + 900;
-      at(t, { ranked: true, scoring: false });
-      t += 1000;
+      let t = 500 + n * 450 + 1300;
+      at(t, { sorting: true });
+      at(t + 250, { ranked: true });
+      t += 250 + 900 + n * 70 + 200;
+      at(t, { sorting: false, scoring: false });
+      t += 700;
       at(t, { focus: 0 });
       t += 700;
       at(t, { key: "J", focus: Math.min(1, n - 1) });
@@ -156,10 +180,10 @@ export function LiveRanking({ jobs, live, compact }: { jobs: PreviewJob[]; live:
       alive = false;
       timers.forEach(clearTimeout);
     };
-  }, [n]);
+  }, [n, arrival]);
 
   const pos = (i: number) => (s.ranked ? i : arrival.indexOf(i));
-  const status = s.scoring ? (s.shown < n ? `Scoring ${Math.max(s.shown, 1)} of ${n}…` : "Calibrating…") : "Ranked by calibrated fit";
+  const status = s.scoring ? (s.sorting ? "Sorting by final score…" : s.shown < n ? `Scoring ${Math.max(s.shown, 1)} of ${n} · newest first` : "Calibrating…") : "Ranked by final score";
 
   return (
     <div className="relative" data-testid="product-preview">
@@ -213,7 +237,17 @@ export function LiveRanking({ jobs, live, compact }: { jobs: PreviewJob[]; live:
               </div>
               <div className="relative mt-3 [--row:78px] sm:mt-4 sm:[--row:84px]" style={{ height: `calc(var(--row) * ${n})` }}>
                 {list.map((j, i) => (
-                  <Row key={j.id} job={j} pos={pos(i)} visible={arrival.indexOf(i) < s.shown} focused={s.focus === i} saved={s.saved === i} />
+                  <Row
+                    key={j.id}
+                    job={j}
+                    pos={pos(i)}
+                    visible={arrival.indexOf(i) < s.shown}
+                    focused={s.focus === i}
+                    saved={s.saved === i}
+                    moving={s.sorting && arrival.indexOf(i) !== i}
+                    delay={s.sorting ? Math.abs(arrival.indexOf(i) - i) * 70 : 0}
+                    rank={s.ranked ? i + 1 : null}
+                  />
                 ))}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 border-t border-border pt-3 text-[11px] text-fg-subtle">

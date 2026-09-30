@@ -27,8 +27,8 @@ function Tip({ active, payload, label }: { active?: boolean; payload?: { name: s
   );
 }
 
-export function VelocityChart({ data }: { data: { week: string; opened: number; closed: number }[] }) {
-  if (!data.length) return <p className="flex h-full items-center justify-center text-sm text-fg-subtle">No history yet</p>;
+export function VelocityChart({ data, since }: { data: { week: string; opened: number; closed: number }[]; since?: string | null }) {
+  if (!data.length) return <p className="flex h-full items-center justify-center text-sm text-fg-subtle">{since ? `No weekly history yet — tracking since ${since}` : "No history yet"}</p>;
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} barGap={2} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Ellipsis, Keyboard, LogOut, Radar, Search } from "lucide-react";
+import { Ellipsis, Keyboard, LogOut, Search } from "lucide-react";
+import { BrandMark } from "./landing/brand";
 import { signOutAction } from "@/lib/auth-actions";
 import { MOBILE_PRIMARY, NAV, NAV_GROUPS } from "./nav-items";
 import { RemindersBell } from "./reminders-bell";
@@ -17,9 +18,7 @@ import { useHotkeys } from "@/lib/hotkeys";
 export function Logo() {
   return (
     <Link href="/today" className="flex items-center gap-2 rounded-md font-semibold tracking-tight text-fg">
-      <span className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-fg">
-        <Radar className="size-4" aria-hidden />
-      </span>
+      <BrandMark />
       Scout
     </Link>
   );
@@ -41,7 +40,7 @@ export function AppShell({ children, counts, user, reminders }: { children: Reac
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[232px_1fr]">
       <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-surface-2/60 px-3 py-4 md:flex">
-        <div className="flex items-center justify-between gap-1 pl-2">
+        <div className="app-glow app-glow-sm relative flex items-center justify-between gap-1 pl-2">
           <Logo />
           <div className="flex items-center gap-1">
             {demo && (
@@ -114,7 +113,7 @@ export function AppShell({ children, counts, user, reminders }: { children: Reac
         <div className="flex items-center gap-1">
           {demo && <span className="mr-1 rounded-md bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-warn">Demo</span>}
           <RemindersBell items={reminders} />
-          <button onClick={() => setPaletteOpen(true)} aria-label="Search" className="inline-flex size-9 items-center justify-center rounded-lg text-fg-muted hover:bg-muted">
+          <button onClick={() => setPaletteOpen(true)} aria-label="Search" className="inline-flex size-11 items-center justify-center rounded-lg text-fg-muted hover:bg-muted">
             <Search className="size-4" />
           </button>
           <ThemeToggle compact />
@@ -178,12 +177,12 @@ export function AppShell({ children, counts, user, reminders }: { children: Reac
   );
 }
 
-export function PageHeader({ title, description, actions }: { title: string; description?: React.ReactNode; actions?: React.ReactNode }) {
+export function PageHeader({ title, description, actions }: { title: React.ReactNode; description?: React.ReactNode; actions?: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         <h1 className="text-xl font-semibold tracking-tight text-fg">{title}</h1>
-        {description && <p className="mt-1 text-sm text-fg-muted">{description}</p>}
+        {description && <div className="mt-1 text-sm text-fg-muted">{description}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>

@@ -16,7 +16,11 @@ import { Kbd } from "@/components/ui/kbd";
 import { addFeedback, undoFeedback } from "@/lib/actions";
 import type { FeedbackAction } from "@/lib/db/schema";
 import { useHotkeys } from "@/lib/hotkeys";
-import type { JobListItem } from "@/lib/queries";
+import type { Briefing, JobListItem } from "@/lib/queries";
+import { useMedia } from "@/lib/use-media";
+import { humanizeReasons } from "@/lib/reasons";
+import { BriefingStrip } from "./briefing";
+import { PreviewPane } from "./preview-pane";
 import { handleResult } from "@/lib/toast";
 import { cn, formatDateTime, timeAgo } from "@/lib/utils";
 import { MIN_SALARY_OPTIONS, places } from "@/lib/places";
@@ -46,8 +50,9 @@ const inTab = (j: JobListItem, t: Tab) => {
 };
 
 
-export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
+export function TodayInbox({ jobs, briefing }: { jobs: JobListItem[]; briefing: Briefing }) {
   const router = useRouter();
+  const wide = useMedia("(min-width: 1280px)");
   const [tab, setTab] = useState<Tab>(() => (jobs.some((j) => inTab(j, "top")) ? "top" : jobs.some((j) => inTab(j, "maybe")) ? "maybe" : "all"));
   const [f, setF] = useState<Filters>(DEFAULT);
   const [hidden, setHidden] = useState<Set<number>>(new Set());
@@ -127,18 +132,19 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
+    <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8 xl:max-w-[1400px]">
       <PageHeader
         title="Today"
         description={
           <>
-            {jobs.length - hidden.size} new matches to triage.{" "}
+            <span className="font-serif text-[15px] text-fg italic">{jobs.length - hidden.size} fresh</span> matches to triage.{" "}
             <span className="hidden md:inline">
               Use <Kbd>J</Kbd> <Kbd>K</Kbd> to move, <Kbd>S</Kbd> save, <Kbd>A</Kbd> apply.
             </span>
           </>
         }
       />
+      <BriefingStrip b={briefing} />
 
       <div className="sticky top-14 z-20 -mx-4 mt-5 bg-bg/90 px-4 backdrop-blur md:top-0 md:mx-0 md:px-0">
         <div className="flex items-center justify-between gap-2 border-b border-border">
@@ -237,38 +243,47 @@ export function TodayInbox({ jobs }: { jobs: JobListItem[] }) {
           />
         </div>
       ) : (
-        <ul ref={listRef} className="mt-4 space-y-2" aria-label="Job matches">
-          {visible.map((j, i) => (
-            <JobRow key={j.id} job={j} idx={i} selected={i === sel} onSelect={() => setSel(i)} onAct={act} />
-          ))}
-        </ul>
+        <div className="mt-3 xl:grid xl:grid-cols-[460px_minmax(0,1fr)] xl:items-start xl:gap-5">
+          <ul ref={listRef} className="space-y-2 xl:space-y-1.5" aria-label="Job matches">
+            {visible.map((j, i) => (
+              <JobRow key={j.id} job={j} idx={i} selected={i === sel} split={wide} onSelect={() => setSel(i)} onAct={act} />
+            ))}
+          </ul>
+          {wide && current && <PreviewPane job={current} onAct={act} />}
+        </div>
       )}
     </div>
   );
 }
 
-function JobRow({ job, idx, selected, onSelect, onAct }: { job: JobListItem; idx: number; selected: boolean; onSelect: () => void; onAct: (j: JobListItem, a: FeedbackAction) => void }) {
+function JobRow({ job, idx, selected, split, onSelect, onAct }: { job: JobListItem; idx: number; selected: boolean; split: boolean; onSelect: () => void; onAct: (j: JobListItem, a: FeedbackAction) => void }) {
   const posted = job.postedAt ?? job.firstSeenAt;
+  const reason = humanizeReasons(job.reasons)[0];
   return (
     <li
       data-idx={idx}
       data-testid="job-card"
       aria-current={selected ? "true" : undefined}
-      onMouseEnter={onSelect}
+      onMouseEnter={split ? undefined : onSelect}
+      onClick={split ? onSelect : undefined}
       className={cn(
-        "group relative rounded-xl border bg-surface shadow-card transition-[border-color,box-shadow]",
-        selected ? "border-accent/60 ring-2 ring-accent/15" : "border-border hover:border-border-strong",
+        "group relative rounded-xl border bg-surface shadow-card transition-[border-color,box-shadow,background-color]",
+        split && "cursor-pointer",
+        selected ? "border-accent/60 ring-2 ring-accent/15 xl:bg-accent-soft/30" : "border-border hover:border-border-strong",
       )}
     >
-      <div className="flex gap-3 p-4 sm:gap-4">
-        <CompanyLogo name={job.companyName} domain={job.companyDomain} />
+      <div className="flex gap-3 px-3.5 py-3 sm:gap-3.5 xl:px-3 xl:py-2.5">
+        <CompanyLogo name={job.companyName} domain={job.companyDomain} size={split ? 34 : 40} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <Link href={`/job/${job.id}`} className="block truncate text-[15px] font-semibold text-fg after:absolute after:inset-0 hover:text-accent focus-visible:outline-none">
+            <div className="min-w-0 flex-1">
+              <Link
+                href={`/job/${job.id}`}
+                className={cn("block truncate text-[15px] font-semibold text-fg hover:text-accent focus-visible:outline-none xl:text-sm", !split && "after:absolute after:inset-0")}
+              >
                 {job.title}
               </Link>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-fg-muted">
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-fg-muted xl:text-xs">
                 <Link href={`/company/${job.companyKey}`} className="relative z-10 font-medium text-fg hover:text-accent hover:underline">
                   {job.companyName}
                 </Link>
@@ -277,33 +292,31 @@ function JobRow({ job, idx, selected, onSelect, onAct }: { job: JobListItem; idx
                   {timeAgo(posted)} ago
                 </span>
                 {job.seniority && (
-                  <>
-                    <span aria-hidden className="text-fg-subtle">·</span>
-                    <span className="capitalize text-fg-subtle">{job.seniority}</span>
-                  </>
+                  <span className="capitalize text-fg-subtle before:mr-2 before:text-fg-subtle before:content-['·'] xl:hidden">{job.seniority}</span>
                 )}
               </div>
             </div>
-            <ScoreRing value={job.fitProb} size={44} />
+            {!split && (
+              <div className={cn("relative z-10 hidden shrink-0 items-center gap-1 sm:group-focus-within:flex sm:group-hover:flex", selected && "sm:flex")}>
+                <RowActions job={job} onAct={onAct} />
+              </div>
+            )}
+            <ScoreRing value={job.fitProb} size={split ? 36 : 42} />
           </div>
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <LocationChips location={job.location} remote={job.remote} />
             <SalaryBadge salary={job.salary} />
             <ChangeBadges badges={job.badges} />
+            {!split && <SkillChips reasons={job.reasons} missing={job.missingSkills} maxReasons={2} cap={2} inline />}
           </div>
-          <div className="mt-2 flex items-end gap-3">
-            <div className="min-w-0 flex-1">
-              <SkillChips reasons={job.reasons} missing={job.missingSkills} maxReasons={2} />
-            </div>
-            <div className={cn("relative z-10 hidden items-center gap-1 transition-opacity sm:flex sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100", selected && "sm:opacity-100")}>
-              <RowActions job={job} onAct={onAct} />
-            </div>
-          </div>
+          {split && reason && <p className="mt-1.5 truncate text-xs text-fg-subtle" title={reason.detail ?? undefined}>{reason.text}</p>}
         </div>
       </div>
-      <div className="relative z-10 flex items-center gap-1 border-t border-border px-3 py-2 sm:hidden">
-        <RowActions job={job} onAct={onAct} mobile />
-      </div>
+      {!split && (
+        <div className="relative z-10 flex items-center gap-1 border-t border-border px-2 py-1.5 sm:hidden">
+          <RowActions job={job} onAct={onAct} mobile />
+        </div>
+      )}
     </li>
   );
 }

@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/select";
 import { DiffPane, diffStats } from "@/components/diff-view";
 import type { JobEvent, JobVersion } from "@/lib/intel";
 import { salaryLabel } from "@/lib/format";
-import { cn, formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime, istDate } from "@/lib/utils";
 
 const KIND: Record<string, { label: string; dot: string }> = {
   opened: { label: "Posted", dot: "bg-accent" },
@@ -52,7 +52,7 @@ function eventDetail(e: JobEvent, range: (a: number | null, b: number | null) =>
 
 type Snap = { id: string; label: string; title: string; location: string | null; salaryMin: number | null; salaryMax: number | null; descriptionMd: string };
 
-export function JobHistory({ events, versions, current, currency }: { events: JobEvent[]; versions: JobVersion[]; current: Omit<Snap, "id" | "label">; currency: string }) {
+export function JobHistory({ events, versions, current, currency, firstSeenAt }: { events: JobEvent[]; versions: JobVersion[]; current: Omit<Snap, "id" | "label">; currency: string; firstSeenAt: string }) {
   const range = makeRange(currency);
   const snaps: Snap[] = useMemo(() => {
     const vs = versions.map((v, i) => ({ ...v, id: String(v.id), label: `v${versions.length - i} · ${formatDateTime(v.capturedAt)}` }));
@@ -67,15 +67,21 @@ export function JobHistory({ events, versions, current, currency }: { events: Jo
   const opts = snaps.map((s) => ({ value: s.id, label: s.label }));
   const stats = a && b ? diffStats(a.descriptionMd, b.descriptionMd) : null;
 
-  if (!events.length && versions.length === 0) {
+  const changes = events.filter((e) => e.kind !== "opened");
+  const quiet = changes.length === 0 && snaps.length < 2;
+  const [open, setOpen] = useState(false);
+
+  if (quiet && (!open || !events.length)) {
     return (
-      <Card data-testid="job-history">
-        <CardHeader title="History" />
-        <p className="flex items-center gap-2 p-4 text-[13px] text-fg-subtle">
-          <HistoryIcon className="size-4" aria-hidden />
-          No changes tracked yet. Edits, closes and salary moves show up here.
-        </p>
-      </Card>
+      <div data-testid="job-history" className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border px-4 py-3 text-[13px] text-fg-subtle">
+        <HistoryIcon className="size-4 shrink-0" aria-hidden />
+        <span className="flex-1">No changes since first seen on {istDate(firstSeenAt, true)}.</span>
+        {events.length > 0 && (
+          <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-8 items-center rounded-md px-2 text-xs font-medium text-fg-muted hover:bg-muted hover:text-fg" aria-expanded={false}>
+            Show timeline
+          </button>
+        )}
+      </div>
     );
   }
 
