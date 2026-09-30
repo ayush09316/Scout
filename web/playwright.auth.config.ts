@@ -15,6 +15,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
+      NODE_ENV: "test",
       NEXT_DIST_DIR: ".next-e2e-auth",
       DEMO_MODE: "0",
       DATABASE_URL: process.env.DATABASE_URL ?? "postgres://localhost:5432/scout_web_dev",

@@ -18,6 +18,6 @@ export default defineConfig({
     url: `http://localhost:${port}/today`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { NEXT_DIST_DIR: ".next-e2e", DEMO_MODE: "1", DATABASE_URL: process.env.DATABASE_URL ?? "postgres://localhost:5432/scout_web_dev", AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-00" },
+    env: { NODE_ENV: "test", NEXT_DIST_DIR: ".next-e2e", DEMO_MODE: "1", DATABASE_URL: process.env.DATABASE_URL ?? "postgres://localhost:5432/scout_web_dev", AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-00" },
   },
 });
