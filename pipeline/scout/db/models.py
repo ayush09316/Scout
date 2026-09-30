@@ -241,13 +241,3 @@ class Reminder(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-
-class ChatMessage(Base):
-    __tablename__ = "chat_messages"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    session_id: Mapped[str] = mapped_column(Text)
-    role: Mapped[str] = mapped_column(Text)
-    content: Mapped[str] = mapped_column(Text)
-    tool_calls: Mapped[list] = mapped_column(JSONB, default=list)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
