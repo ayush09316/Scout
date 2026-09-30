@@ -1,0 +1,13 @@
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS search_stage TEXT;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS roles JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS locations JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS pains JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS tools JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS pay_likelihood SMALLINT;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS pay_reason TEXT;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS survey_step SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS survey_completed_at TIMESTAMPTZ;
+ALTER TABLE waitlist DROP CONSTRAINT IF EXISTS waitlist_pay_likelihood_check;
+ALTER TABLE waitlist ADD CONSTRAINT waitlist_pay_likelihood_check CHECK (pay_likelihood IS NULL OR pay_likelihood BETWEEN 1 AND 5);
+ALTER TABLE waitlist DROP CONSTRAINT IF EXISTS waitlist_survey_step_check;
+ALTER TABLE waitlist ADD CONSTRAINT waitlist_survey_step_check CHECK (survey_step BETWEEN 0 AND 5);

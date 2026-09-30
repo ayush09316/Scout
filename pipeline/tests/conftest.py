@@ -40,6 +40,7 @@ def db_url() -> str:
         conn.exec_driver_sql(SCHEMA_V2.with_name("schema_v3.sql").read_text())
         conn.exec_driver_sql(SCHEMA_V2.with_name("schema_v5.sql").read_text())
         conn.exec_driver_sql(SCHEMA_V2.with_name("schema_v6.sql").read_text())
+        conn.exec_driver_sql(SCHEMA_V2.with_name("schema_v7.sql").read_text())
     engine.dispose()
     return url
 

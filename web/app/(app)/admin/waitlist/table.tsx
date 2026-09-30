@@ -3,25 +3,24 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, Copy, Flame, Search, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { adminDeleteEntry } from "@/lib/waitlist-actions";
 import type { WaitlistRow } from "@/lib/waitlist";
-import { EXPERIENCE, WOULD_PAY } from "@/lib/waitlist-options";
+import { EXPERIENCE, STAGES } from "@/lib/waitlist-options";
 import { cn } from "@/lib/utils";
 
-type Key = "email" | "name" | "role" | "experience" | "city" | "wouldPay" | "source" | "referrals" | "createdAt";
+type Key = "email" | "searchStage" | "roles" | "experience" | "likelihood" | "completedAt" | "referrals" | "createdAt";
 
 const COLS: { key: Key; label: string; className?: string }[] = [
   { key: "email", label: "Email" },
-  { key: "name", label: "Name" },
-  { key: "role", label: "Role" },
+  { key: "searchStage", label: "Stage" },
+  { key: "roles", label: "Roles" },
   { key: "experience", label: "Exp" },
-  { key: "city", label: "City" },
-  { key: "wouldPay", label: "Would pay" },
-  { key: "source", label: "Source" },
+  { key: "likelihood", label: "Pay 1–5", className: "text-right" },
+  { key: "completedAt", label: "Survey" },
   { key: "referrals", label: "Refs", className: "text-right" },
   { key: "createdAt", label: "Joined" },
 ];
@@ -29,10 +28,12 @@ const COLS: { key: Key; label: string; className?: string }[] = [
 const PAGE = 25;
 const joined = (iso: string) => new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 
-const orderOf = (k: Key, v: WaitlistRow[Key]) => {
-  if (k === "experience") return EXPERIENCE.indexOf(v as (typeof EXPERIENCE)[number]);
-  if (k === "wouldPay") return WOULD_PAY.indexOf(v as (typeof WOULD_PAY)[number]);
-  return v;
+const orderOf = (k: Key, r: WaitlistRow) => {
+  if (k === "experience") return EXPERIENCE.indexOf(r.experience as (typeof EXPERIENCE)[number]);
+  if (k === "searchStage") return STAGES.indexOf(r.searchStage as (typeof STAGES)[number]);
+  if (k === "roles") return r.roles.join(", ");
+  if (k === "completedAt") return r.completedAt ?? (r.surveyStep > 0 ? `0${r.surveyStep}` : null);
+  return r[k];
 };
 
 export function CopyLanding() {
@@ -57,6 +58,7 @@ export function CopyLanding() {
 export function WaitlistTable({ rows }: { rows: WaitlistRow[] }) {
   const router = useRouter();
   const [q, setQ] = useState("");
+  const [hot, setHot] = useState(false);
   const [sort, setSort] = useState<{ key: Key; dir: 1 | -1 }>({ key: "createdAt", dir: -1 });
   const [page, setPage] = useState(0);
   const [confirm, setConfirm] = useState<WaitlistRow | null>(null);
@@ -64,24 +66,25 @@ export function WaitlistTable({ rows }: { rows: WaitlistRow[] }) {
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
-    const list = t ? rows.filter((r) => [r.email, r.name, r.role, r.city, r.source, r.wouldPay].some((v) => v?.toLowerCase().includes(t))) : rows;
+    const base = hot ? rows.filter((r) => r.hot) : rows;
+    const list = t ? base.filter((r) => [r.email, r.name, r.searchStage, r.experience, r.payReason, r.source, ...r.roles, ...r.locations].some((v) => v?.toLowerCase().includes(t))) : base;
     return [...list].sort((a, b) => {
-      const av = orderOf(sort.key, a[sort.key]);
-      const bv = orderOf(sort.key, b[sort.key]);
+      const av = orderOf(sort.key, a);
+      const bv = orderOf(sort.key, b);
       const an = av == null || av === "" || av === -1;
       const bn = bv == null || bv === "" || bv === -1;
       if (an !== bn) return an ? 1 : -1;
       if (av === bv) return b.id - a.id;
       return (av! < bv! ? -1 : 1) * sort.dir;
     });
-  }, [rows, q, sort]);
+  }, [rows, q, sort, hot]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
   const cur = Math.min(page, pages - 1);
   const shown = filtered.slice(cur * PAGE, cur * PAGE + PAGE);
 
   const toggle = (key: Key) => {
-    setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "createdAt" || key === "referrals" ? -1 : 1 }));
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "createdAt" || key === "referrals" || key === "likelihood" || key === "completedAt" ? -1 : 1 }));
     setPage(0);
   };
 
@@ -94,6 +97,23 @@ export function WaitlistTable({ rows }: { rows: WaitlistRow[] }) {
             {filtered.length === rows.length ? `${rows.length.toLocaleString("en-IN")} people` : `${filtered.length.toLocaleString("en-IN")} of ${rows.length.toLocaleString("en-IN")} match`}
           </p>
         </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <button
+          type="button"
+          aria-pressed={hot}
+          data-testid="wl-hot-toggle"
+          onClick={() => {
+            setHot((h) => !h);
+            setPage(0);
+          }}
+          className={cn(
+            "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-medium shadow-card transition-colors focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none",
+            hot ? "border-accent/50 bg-accent-soft text-accent" : "border-border bg-surface text-fg-muted hover:bg-muted hover:text-fg",
+          )}
+        >
+          <Flame className="size-4" aria-hidden />
+          Hot leads only
+        </button>
         <label className="relative flex w-full items-center sm:w-72">
           <Search className="pointer-events-none absolute left-3 size-4 text-fg-subtle" aria-hidden />
           <input
@@ -102,11 +122,12 @@ export function WaitlistTable({ rows }: { rows: WaitlistRow[] }) {
               setQ(e.target.value);
               setPage(0);
             }}
-            placeholder="Search email, name, city…"
+            placeholder="Search email, stage, role, city…"
             aria-label="Search signups"
             className="h-9 w-full rounded-lg border border-border bg-surface pr-3 pl-9 text-sm text-fg shadow-card outline-none placeholder:text-fg-subtle focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-ring/30"
           />
         </label>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[920px] text-[13px]" data-testid="wl-table">
@@ -131,13 +152,31 @@ export function WaitlistTable({ rows }: { rows: WaitlistRow[] }) {
                 <td className="max-w-[240px] truncate py-2.5 pr-3 pl-4 font-medium text-fg" title={r.email}>
                   {r.email}
                 </td>
-                <td className="max-w-[140px] truncate px-3 text-fg-muted">{r.name ?? <Dash />}</td>
-                <td className="px-3 whitespace-nowrap text-fg-muted">{r.role ?? <Dash />}</td>
+                <td className="px-3 whitespace-nowrap text-fg-muted">
+                  {r.searchStage ?? <Dash />}
+                  {r.hot && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-accent-soft px-1.5 py-0.5 align-middle text-[10.5px] font-medium text-accent">
+                      <Flame className="size-3" aria-hidden />
+                      Hot
+                    </span>
+                  )}
+                </td>
+                <td className="max-w-[180px] truncate px-3 text-fg-muted" title={r.roles.join(", ") || undefined}>
+                  {r.roles.length ? r.roles.join(", ") : <Dash />}
+                </td>
                 <td className="px-3 whitespace-nowrap text-fg-muted">{r.experience ?? <Dash />}</td>
-                <td className="max-w-[120px] truncate px-3 text-fg-muted">{r.city ?? <Dash />}</td>
-                <td className="px-3 whitespace-nowrap text-fg-muted">{r.wouldPay ?? <Dash />}</td>
-                <td className="max-w-[140px] truncate px-3 text-fg-muted" title={r.source ?? undefined}>
-                  {r.source ?? <Dash />}
+                <td className="px-3 text-right font-mono tabular-nums text-fg">{r.likelihood ?? <Dash />}</td>
+                <td className="px-3 whitespace-nowrap text-fg-muted">
+                  {r.completedAt ? (
+                    <span className="inline-flex items-center gap-1 text-good">
+                      <Check className="size-3.5" aria-hidden />
+                      Done
+                    </span>
+                  ) : r.surveyStep > 0 ? (
+                    `${r.surveyStep}/5`
+                  ) : (
+                    <Dash />
+                  )}
                 </td>
                 <td className="px-3 text-right font-mono tabular-nums text-fg">{r.referrals}</td>
                 <td className="px-3 whitespace-nowrap text-fg-subtle tabular-nums">{joined(r.createdAt)}</td>
@@ -151,7 +190,7 @@ export function WaitlistTable({ rows }: { rows: WaitlistRow[] }) {
             {shown.length === 0 && (
               <tr>
                 <td colSpan={COLS.length + 1} className="px-4 py-10 text-center text-sm text-fg-muted">
-                  No signups match “{q.trim()}”.
+                  {q.trim() ? <>No signups match “{q.trim()}”.</> : "No hot leads yet."}
                 </td>
               </tr>
             )}

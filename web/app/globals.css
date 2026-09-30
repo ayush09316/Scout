@@ -348,3 +348,9 @@ body {
   .wl-check, .wl-check::after, .wl-in { animation: none; }
   .wl-check path { animation: none; stroke-dashoffset: 0; }
 }
+
+@keyframes wl-step-f { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes wl-step-b { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+.wl-step-f { animation: wl-step-f 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.wl-step-b { animation: wl-step-b 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .wl-step-f, .wl-step-b { animation: none; } }

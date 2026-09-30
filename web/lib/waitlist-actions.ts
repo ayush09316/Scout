@@ -5,12 +5,12 @@ import { revalidatePath } from "next/cache";
 import { ownerSession } from "@/auth";
 import { isDemo } from "./env";
 import { take } from "./rate-limit";
-import { deleteByCode, deleteById, hashIp, insertEntry, leaveToken, standing, validLeaveToken } from "./waitlist";
-import { EMAIL_RE, EXPERIENCE, REF_RE, ROLES, WOULD_PAY } from "./waitlist-options";
+import { deleteByCode, deleteById, hashIp, insertEntry, leaveToken, saveStep, standing, surveyToken, validLeaveToken, validSurveyToken, type StepAnswers } from "./waitlist";
+import { EMAIL_RE, EXPERIENCE, LIKELIHOOD, LOCATIONS, MAX_PAINS, MAX_REASON, MAX_ROLES, PAINS, REF_RE, ROLES, STAGES, SURVEY_STEPS, TOOLS } from "./waitlist-options";
 import { sendWelcome } from "./waitlist-email";
 
 export type JoinResult =
-  | { ok: true; spam?: false; existing: boolean; position: number; total: number; referrals: number; refCode: string; leaveUrl: string; shareUrl: string }
+  | { ok: true; spam?: false; existing: boolean; position: number; total: number; referrals: number; refCode: string; token: string; surveyStep: number; surveyDone: boolean; leaveUrl: string; shareUrl: string }
   | { ok: true; spam: true }
   | { ok: false; error: string; field?: string };
 
@@ -20,7 +20,6 @@ const str = (f: FormData, k: string, max: number) => {
   return s ? s.slice(0, max) : null;
 };
 
-const oneOf = <T extends readonly string[]>(v: string | null, list: T) => (v && (list as readonly string[]).includes(v) ? v : null);
 
 async function origin() {
   const h = await headers();
@@ -45,12 +44,6 @@ export async function joinWaitlist(form: FormData): Promise<JoinResult> {
   try {
     const { refCode, created } = await insertEntry({
       email,
-      name: str(form, "name", 80),
-      role: oneOf(str(form, "role", 40), ROLES),
-      experience: oneOf(str(form, "experience", 40), EXPERIENCE),
-      city: str(form, "city", 80),
-      wouldPay: oneOf(str(form, "would_pay", 40), WOULD_PAY),
-      source: str(form, "source", 120),
       referredBy: ref && REF_RE.test(ref) ? ref : null,
       ipHash: hashIp(ip),
       userAgent: h.get("user-agent")?.slice(0, 300) ?? null,
@@ -62,9 +55,68 @@ export async function joinWaitlist(form: FormData): Promise<JoinResult> {
     const leaveUrl = `${base}/waitlist/leave?code=${refCode}&t=${leaveToken(refCode)}`;
     if (created) await sendWelcome({ to: s.email, position: s.position, shareUrl, leaveUrl });
     revalidatePath("/admin/waitlist");
-    return { ok: true, existing: !created, position: s.position, total: s.total, referrals: s.referrals, refCode, shareUrl, leaveUrl };
+    return { ok: true, existing: !created, position: s.position, total: s.total, referrals: s.referrals, refCode, token: surveyToken(refCode), surveyStep: s.surveyStep, surveyDone: s.surveyDone, shareUrl, leaveUrl };
   } catch (e) {
     console.error("waitlist join failed", e);
+    return { ok: false, error: "We couldn't save that right now. Please try again." };
+  }
+}
+
+export type SaveResult = { ok: true; position: number; total: number; referrals: number; surveyStep: number; surveyDone: boolean } | { ok: false; error: string };
+
+const BAD = "That answer isn't one of the options.";
+
+const pickOne = (v: unknown, list: readonly string[]) => (v == null || v === "" ? null : typeof v === "string" && list.includes(v) ? v : undefined);
+
+const pickMany = (v: unknown, list: readonly string[], max: number) => {
+  if (v == null) return [];
+  if (!Array.isArray(v) || v.some((x) => typeof x !== "string" || !list.includes(x))) return undefined;
+  const out = [...new Set(v as string[])];
+  return out.length > max ? undefined : out;
+};
+
+function parseStep(step: number, raw: unknown): StepAnswers | null | undefined {
+  if (raw == null) return null;
+  if (typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const a = raw as Record<string, unknown>;
+  if (step === 1) {
+    const stage = pickOne(a.stage, STAGES);
+    return stage === undefined ? undefined : { step, stage };
+  }
+  if (step === 2) {
+    const roles = pickMany(a.roles, ROLES, MAX_ROLES);
+    const experience = pickOne(a.experience, EXPERIENCE);
+    const locations = pickMany(a.locations, LOCATIONS, LOCATIONS.length);
+    return roles === undefined || experience === undefined || locations === undefined ? undefined : { step, roles, experience, locations };
+  }
+  if (step === 3) {
+    const pains = pickMany(a.pains, PAINS, MAX_PAINS);
+    return pains === undefined ? undefined : { step, pains };
+  }
+  if (step === 4) {
+    const tools = pickMany(a.tools, TOOLS, TOOLS.length);
+    return tools === undefined ? undefined : { step, tools };
+  }
+  const l = a.likelihood;
+  if (l != null && !(LIKELIHOOD as readonly unknown[]).includes(l)) return undefined;
+  if (a.reason != null && typeof a.reason !== "string") return undefined;
+  const reason = typeof a.reason === "string" ? a.reason.trim().slice(0, MAX_REASON) || null : null;
+  return { step: 5, likelihood: (l as number | null) ?? null, reason };
+}
+
+export async function saveWaitlistAnswers(refCode: string, token: string, step: number, answers: unknown): Promise<SaveResult> {
+  if (typeof refCode !== "string" || typeof token !== "string" || !REF_RE.test(refCode) || !validSurveyToken(refCode, token)) return { ok: false, error: "This link has expired. Rejoin with your email to continue." };
+  if (!Number.isInteger(step) || step < 1 || step > SURVEY_STEPS) return { ok: false, error: "Unknown step." };
+  const parsed = parseStep(step, answers);
+  if (parsed === undefined) return { ok: false, error: BAD };
+  try {
+    if (!(await saveStep(refCode, step, parsed))) return { ok: false, error: "We couldn't find your spot on the list." };
+    const s = await standing(refCode);
+    if (!s) return { ok: false, error: "We couldn't find your spot on the list." };
+    revalidatePath("/admin/waitlist");
+    return { ok: true, position: s.position, total: s.total, referrals: s.referrals, surveyStep: s.surveyStep, surveyDone: s.surveyDone };
+  } catch (e) {
+    console.error("waitlist survey save failed", e);
     return { ok: false, error: "We couldn't save that right now. Please try again." };
   }
 }

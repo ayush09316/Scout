@@ -7,8 +7,8 @@ import { EmptyState } from "@/components/ui/empty";
 import { ownerSession } from "@/auth";
 import { isDemo } from "@/lib/env";
 import { allEntries, waitlistStats } from "@/lib/waitlist";
-import { WOULD_PAY } from "@/lib/waitlist-options";
-import { PayChart, SignupsChart } from "./charts";
+import { LIKELIHOOD, LOCATIONS, PAINS, ROLES, STAGES, TOOLS } from "@/lib/waitlist-options";
+import { CountChart, LikelihoodChart, SignupsChart } from "./charts";
 import { CopyLanding, WaitlistTable } from "./table";
 
 export const metadata: Metadata = { title: "Waitlist" };
@@ -16,23 +16,9 @@ export const dynamic = "force-dynamic";
 
 const n = (v: number) => v.toLocaleString("en-IN");
 
-function Top({ items, empty }: { items: { label: string; n: number }[]; empty: string }) {
-  if (!items.length) return <p className="mt-1 text-sm text-fg-subtle">{empty}</p>;
-  const max = Math.max(...items.map((i) => i.n));
-  return (
-    <ul className="mt-2 space-y-1.5">
-      {items.slice(0, 3).map((i) => (
-        <li key={i.label} className="grid grid-cols-[minmax(0,1fr)_56px_24px] items-center gap-2 text-[12.5px]">
-          <span className="truncate text-fg" title={i.label}>{i.label}</span>
-          <span className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
-            <span className="block h-full rounded-full bg-accent/80" style={{ width: `${(i.n / max) * 100}%` }} />
-          </span>
-          <span className="text-right font-mono text-[11px] text-fg-subtle tabular-nums">{i.n}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
+const ordered = (list: readonly string[], counts: { label: string; n: number }[]) => list.map((label) => ({ label, n: counts.find((c) => c.label === label)?.n ?? 0 }));
+const byCount = (list: readonly string[], counts: { label: string; n: number }[]) => ordered(list, counts).sort((x, y) => y.n - x.n);
+const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "—");
 
 export default async function WaitlistAdmin() {
   if (isDemo()) {
@@ -47,22 +33,29 @@ export default async function WaitlistAdmin() {
   }
   if (!(await ownerSession())) notFound();
   const [stats, rows] = await Promise.all([waitlistStats(), allEntries()]);
-  const pay = WOULD_PAY.map((label) => ({ label, n: stats.pay.find((p) => p.label === label)?.n ?? 0 }));
+  const likelihood = LIKELIHOOD.map((v) => ({ label: String(v), n: stats.likelihood.find((p) => p.label === String(v))?.n ?? 0 }));
+  const mean = stats.likelihoodMean == null ? null : stats.likelihoodMean.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const tiles = [
     { label: "Total signups", value: n(stats.total), sub: stats.total ? `${n(rows.filter((r) => r.referredBy).length)} via referral` : "none yet" },
-    { label: "Last 7 days", value: n(stats.last7), sub: stats.total ? `${Math.round((stats.last7 / stats.total) * 100)}% of all` : "—" },
-    {
-      label: "Would pay ≥ ₹299",
-      value: stats.payingShare == null ? "—" : `${Math.round(stats.payingShare * 100)}%`,
-      sub: stats.answeredPay ? `of ${n(stats.answeredPay)} who answered` : "nobody answered yet",
-    },
+    { label: "Last 7 days", value: n(stats.last7), sub: stats.total ? `${pct(stats.last7, stats.total)} of all` : "—" },
+    { label: "Survey completion", value: pct(stats.completed, stats.total), sub: `${n(stats.completed)} finished · ${n(stats.started)} started` },
+    { label: "Hot leads", value: n(stats.hot), sub: "Actively applying · likelihood ≥ 4" },
+    { label: "Pay likelihood", value: mean == null ? "—" : `${mean} / 5`, sub: stats.likelihoodN ? `mean of ${n(stats.likelihoodN)} answers` : "nobody answered yet" },
   ];
+  const panels = [
+    { title: "Job search stage", data: ordered(STAGES, stats.stages), width: 150, testId: "wl-chart-stage" },
+    { title: "Top pains", data: byCount(PAINS, stats.pains), width: 170, testId: "wl-chart-pains" },
+    { title: "Tools used today", data: byCount(TOOLS, stats.tools), width: 150, testId: "wl-chart-tools" },
+    { title: "Roles", data: byCount(ROLES, stats.roles), width: 100, testId: "wl-chart-roles" },
+    { title: "Where they want to work", data: byCount(LOCATIONS, stats.locations), width: 120, testId: "wl-chart-locations" },
+  ];
+  const answeredOf = (d: { n: number }[]) => d.reduce((s, x) => s + x.n, 0);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
       <PageHeader
         title="Waitlist"
-        description="Signups from the public landing page. Positions rank by join time, a day earlier per referral."
+        description="Signups from the public landing page. Positions rank by join time, a day earlier per referral and a day earlier for a finished survey."
         actions={
           stats.total > 0 ? (
             <a href="/admin/waitlist/export" download className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-fg shadow-card transition-colors hover:bg-muted">
@@ -97,14 +90,6 @@ export default async function WaitlistAdmin() {
                 <p className="mt-0.5 truncate text-[11px] text-fg-subtle">{t.sub}</p>
               </Card>
             ))}
-            <Card className="px-4 py-3">
-              <p className="text-xs text-fg-muted">Top roles</p>
-              <Top items={stats.roles} empty="Not answered yet" />
-            </Card>
-            <Card className="px-4 py-3">
-              <p className="text-xs text-fg-muted">Top cities</p>
-              <Top items={stats.cities} empty="Not answered yet" />
-            </Card>
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] [&>*]:min-w-0">
@@ -114,12 +99,26 @@ export default async function WaitlistAdmin() {
                 <SignupsChart data={stats.daily} />
               </div>
             </Card>
-            <Card>
-              <CardHeader title="Would you pay for this?" description={stats.answeredPay ? `${n(stats.answeredPay)} answered` : "Nobody answered yet"} />
+            <Card data-testid="wl-chart-likelihood">
+              <CardHeader title="If Scout Pro cost ₹299/month…" description={mean == null ? "Nobody answered yet" : `Likelihood to pay, 1–5 · mean ${mean} of ${n(stats.likelihoodN)}`} />
               <div className="h-60 p-3">
-                <PayChart data={pay} />
+                <LikelihoodChart data={likelihood} />
               </div>
             </Card>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
+            {panels.map((p) => {
+              const total = answeredOf(p.data);
+              return (
+                <Card key={p.title} data-testid={p.testId}>
+                  <CardHeader title={p.title} description={total ? `${n(total)} ${total === 1 ? "pick" : "picks"}` : "Not answered yet"} />
+                  <div className="p-3" style={{ height: Math.max(160, p.data.length * 30 + 24) }}>
+                    <CountChart data={p.data} labelWidth={p.width} />
+                  </div>
+                </Card>
+              );
+            })}
           </div>
 
           <div className="mt-4">
