@@ -15,7 +15,7 @@ export function WaitlistSection({ referral, count, showCount }: { referral: stri
     <section id="waitlist" aria-labelledby="waitlist-title" className="relative scroll-mt-20 px-4 py-24 sm:px-6 sm:py-32">
       <div className="relative mx-auto max-w-[1120px]" data-reveal>
         <div aria-hidden className="absolute -inset-x-10 -inset-y-16 -z-10 bg-[radial-gradient(ellipse_55%_50%_at_70%_50%,rgb(168_85_247/0.16),transparent),radial-gradient(ellipse_45%_45%_at_25%_40%,rgb(99_102_241/0.14),transparent)] blur-2xl" />
-        <div className="grid items-center gap-12 lg:grid-cols-[1fr_minmax(0,500px)] lg:gap-16">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[1fr_minmax(0,500px)] lg:gap-16">
           <div>
             <p className="lx-eyebrow">Early access</p>
             <h2 id="waitlist-title" className="mt-4 max-w-[14ch] text-[2.3rem] leading-[1] font-semibold tracking-[-0.045em] text-balance text-fg sm:text-[3.4rem]">
