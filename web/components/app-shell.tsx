@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Ellipsis, Keyboard, Radar, Search } from "lucide-react";
+import { Ellipsis, Keyboard, LogOut, Radar, Search } from "lucide-react";
+import { signOutAction } from "@/lib/auth-actions";
 import { MOBILE_PRIMARY, NAV, NAV_GROUPS } from "./nav-items";
 import { RemindersBell } from "./reminders-bell";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -92,7 +93,19 @@ export function AppShell({ children, counts, user, reminders }: { children: Reac
             <Kbd>?</Kbd>
           </button>
           <ThemeToggle />
-          {user && <p className="truncate px-1.5 text-xs text-fg-subtle">Signed in as {user}</p>}
+          {user && !demo && (
+            <div className="flex items-center gap-1 border-t border-border pt-3">
+              <p className="min-w-0 flex-1 truncate px-1.5 text-xs text-fg-subtle" title={user}>
+                {user}
+              </p>
+              <form action={signOutAction}>
+                <button type="submit" className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-fg-muted hover:bg-muted hover:text-fg">
+                  <LogOut className="size-3.5" aria-hidden />
+                  Sign out
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -149,6 +162,15 @@ export function AppShell({ children, counts, user, reminders }: { children: Reac
                 {n.label}
               </Link>
             ))}
+            {user && !demo && (
+              <form action={signOutAction} className="mt-1 border-t border-border pt-1">
+                <p className="truncate px-3 pt-1.5 text-[11px] text-fg-subtle">{user}</p>
+                <button type="submit" className="flex h-10 w-full items-center gap-2.5 rounded-lg px-3 text-sm text-fg-muted hover:bg-muted hover:text-fg">
+                  <LogOut className="size-4" aria-hidden />
+                  Sign out
+                </button>
+              </form>
+            )}
           </PopoverContent>
         </Popover>
       </nav>

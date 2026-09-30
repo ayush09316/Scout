@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "hash-password": "tsx scripts/hash-password.ts",
+    "test:e2e:auth": "playwright test -c playwright.auth.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

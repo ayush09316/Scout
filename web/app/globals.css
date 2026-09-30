@@ -144,3 +144,25 @@ body {
 .prose-chat th { color: var(--fg-subtle); font-weight: 500; }
 .prose-chat td { color: var(--fg-muted); }
 .prose-chat code { font-family: var(--font-mono); font-size: 0.85em; background: var(--muted); border-radius: 4px; padding: 0 3px; }
+
+@keyframes landing-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.landing-rise { animation: landing-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise { animation: none; }
+}
+.landing-grid {
+  background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: center top;
+  mask-image: radial-gradient(ellipse 60% 70% at 50% 0%, #000 30%, transparent 75%);
+  opacity: 0.55;
+}
+.landing-ink {
+  background: linear-gradient(100deg, var(--fg) 10%, var(--accent) 60%, var(--accent-soft-fg) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

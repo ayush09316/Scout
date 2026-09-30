@@ -1,54 +1,76 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Radar } from "lucide-react";
-import { signIn } from "@/auth";
+import { ArrowLeft, Gauge, KeyRound, Layers, Send } from "lucide-react";
+import { auth, configuredProviders } from "@/auth";
+import { BrandLink } from "@/components/landing/brand";
+import { ProductPreview, SAMPLE_JOBS } from "@/components/landing/product-preview";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { isDemo } from "@/lib/env";
+import { SignInForm } from "./signin-form";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Sign in", description: "Sign in to your Scout job-hunt copilot." };
 export const dynamic = "force-dynamic";
 
-function GitHubMark() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden className="size-4 fill-current">
-      <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z" />
-    </svg>
-  );
-}
+const safe = (v?: string) => (v && v.startsWith("/") && !v.startsWith("//") ? v : "/today");
+
+const HIGHLIGHTS = [
+  { icon: Layers, text: "~15k postings a morning, deduplicated and filtered to jobs you can work from India." },
+  { icon: Gauge, text: "Calibrated fit scores, measured against jobs you labelled yourself." },
+  { icon: Send, text: "The top ten in Telegram at 08:00 IST, the rest in a keyboard-first inbox." },
+  { icon: KeyRound, text: "Your Gemini key never leaves your browser." },
+];
 
 export default async function SignIn({ searchParams }: { searchParams: Promise<{ callbackUrl?: string; error?: string }> }) {
   if (isDemo()) redirect("/today");
   const { callbackUrl, error } = await searchParams;
+  const target = safe(callbackUrl);
+  const session = await auth().catch(() => null);
+  if (session) redirect(target);
+  const p = configuredProviders();
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4">
-      <div aria-hidden className="pointer-events-none absolute inset-0 [background:radial-gradient(600px_300px_at_50%_0%,var(--accent-soft),transparent)]" />
-      <div className="relative w-full max-w-sm">
-        <div className="flex flex-col items-center text-center">
-          <span className="flex size-11 items-center justify-center rounded-xl bg-accent text-accent-fg shadow-card">
-            <Radar className="size-5" aria-hidden />
-          </span>
-          <h1 className="mt-5 text-xl font-semibold tracking-tight">Sign in to Scout</h1>
+    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <main className="relative flex flex-col px-4 py-6 sm:px-10">
+        <div className="flex items-center justify-between">
+          <BrandLink />
+          <ThemeToggle compact />
+        </div>
+        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-12">
+          <Link href="/" className="mb-8 inline-flex w-fit items-center gap-1.5 rounded-md text-[13px] text-fg-muted hover:text-fg">
+            <ArrowLeft className="size-3.5" aria-hidden />
+            Back to home
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em] text-fg">Sign in to Scout</h1>
           <p className="mt-1.5 text-sm text-fg-muted">Your ranked job inbox, tracker and evals.</p>
+          <div className="mt-8">
+            <SignInForm callbackUrl={target} initialError={error} credentials={p.credentials} github={p.github} />
+          </div>
+          <p className="mt-8 text-xs text-fg-subtle">Private instance · access is limited to the owner{p.github ? " and an allowlist" : ""}.</p>
         </div>
-        <div className="mt-8 rounded-xl border border-border bg-surface p-5 shadow-card">
-          {error && (
-            <p role="alert" className="mb-4 rounded-lg bg-bad-soft px-3 py-2 text-[13px] text-bad">
-              {error === "AccessDenied" ? "This GitHub account isn't on the allowlist." : "Sign-in failed. Please try again."}
-            </p>
-          )}
-          <form
-            action={async () => {
-              "use server";
-              await signIn("github", { redirectTo: callbackUrl?.startsWith("/") ? callbackUrl : "/today" });
-            }}
-          >
-            <button type="submit" className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-fg text-sm font-medium text-bg transition-opacity hover:opacity-90">
-              <GitHubMark />
-              Continue with GitHub
-            </button>
-          </form>
-          <p className="mt-4 text-center text-xs text-fg-subtle">Private instance · access limited to an allowlist</p>
+      </main>
+      <aside aria-label="About Scout" className="relative hidden overflow-hidden border-l border-border bg-surface-2/60 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:px-12 lg:pt-20 xl:px-16">
+        <div aria-hidden className="landing-grid pointer-events-none absolute inset-0" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 [background:radial-gradient(60%_50%_at_60%_30%,var(--accent-soft),transparent_70%)]" />
+        <div className="relative">
+          <p className="font-mono text-[11px] font-medium tracking-[0.14em] text-accent uppercase">Scout</p>
+          <p className="mt-3 max-w-md text-3xl leading-tight font-semibold tracking-[-0.03em] text-balance text-fg">Your job hunt, ranked before breakfast.</p>
+          <ul className="mt-8 grid max-w-md gap-3.5">
+            {HIGHLIGHTS.map((h) => (
+              <li key={h.text} className="flex items-start gap-3 text-sm text-fg-muted">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-accent">
+                  <h.icon className="size-3.5" aria-hidden />
+                </span>
+                <span className="pt-1">{h.text}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-10 -mr-32 max-w-none xl:-mr-48">
+            <div className="origin-top-left scale-[0.92]">
+              <ProductPreview jobs={SAMPLE_JOBS} live={false} />
+            </div>
+          </div>
         </div>
-      </div>
-    </main>
+      </aside>
+    </div>
   );
 }

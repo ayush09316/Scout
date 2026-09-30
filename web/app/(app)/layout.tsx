@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const [counts, session, reminders] = await Promise.all([getNavCounts(), isDemo() ? null : auth(), getDueReminders()]);
-  const user = (session?.user as { login?: string; name?: string } | undefined)?.login ?? session?.user?.name ?? null;
+  const u = session?.user as { login?: string; name?: string | null; email?: string | null } | undefined;
+  const user = u?.login ?? u?.email ?? u?.name ?? null;
   return (
     <AppShell counts={counts} user={user} reminders={reminders}>
       {children}

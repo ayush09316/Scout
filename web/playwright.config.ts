@@ -10,7 +10,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   use: { baseURL: `http://localhost:${port}`, trace: "retain-on-failure" },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: /mobile/ },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: [/mobile/, /auth\//] },
     { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /mobile/ },
   ],
   webServer: {
