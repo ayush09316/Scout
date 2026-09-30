@@ -180,14 +180,20 @@ export async function getCompanyIntel(key: string): Promise<CompanyIntel | null>
   };
 }
 
-export async function getCompanyJobs(key: string, limit = 40): Promise<JobListItem[]> {
+export async function getCompanyJobs(key: string, opts: { page?: number; pageSize?: number } = {}): Promise<{ jobs: JobListItem[]; total: number; page: number; pageSize: number }> {
+  const pageSize = Math.max(1, Math.min(100, Math.floor(opts.pageSize ?? 20)));
   const { where } = await companyScope(key);
+  const openWhere = sql`${where} AND j.closed_at IS NULL AND j.is_canonical`;
+  const countR = await db.execute(sql`SELECT COUNT(*)::int AS n FROM jobs j WHERE ${openWhere}`);
+  const total = Number(rows<{ n: number }>(countR)[0]?.n ?? 0);
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, Math.floor(opts.page ?? 1) || 1), pages);
   const r = await db.execute(sql`
     ${WITH_CS}
     SELECT ${JOB_COLS} FROM jobs j ${JOB_JOINS}
-    WHERE ${where} AND j.closed_at IS NULL AND j.is_canonical
-    ORDER BY cs.final_score DESC NULLS LAST, j.first_seen_at DESC, j.id DESC LIMIT ${limit}`);
-  return mapJobs(r);
+    WHERE ${openWhere}
+    ORDER BY cs.final_score DESC NULLS LAST, j.first_seen_at DESC, j.id DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`);
+  return { jobs: mapJobs(r), total, page, pageSize };
 }
 
 export type SkillGap = { skill: string; jobsMentioning: number; jobsUnlocked: number; avgFitGain: number; examples: { id: number; title: string; companyName: string }[]; updatedAt: string };

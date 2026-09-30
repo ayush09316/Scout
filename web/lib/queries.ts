@@ -127,10 +127,16 @@ function mapJob(r: RawJob): JobListItem {
   };
 }
 
-export async function getInbox(): Promise<JobListItem[]> {
+export const INBOX_CAP = 2000;
+
+export async function getInbox(cap = INBOX_CAP): Promise<JobListItem[]> {
+  return (await getInboxPage(cap)).jobs;
+}
+
+export async function getInboxPage(cap = INBOX_CAP): Promise<{ jobs: JobListItem[]; total: number }> {
   const r = await db.execute(sql`
     WITH cs AS (${CURRENT_SCORE}), la AS (${LAST_ACTION})
-    SELECT j.id, j.title, j.company_name, j.url, j.location, j.remote, j.seniority, j.source, j.posted_at, j.first_seen_at,
+    SELECT COUNT(*) OVER ()::int AS total_count, j.id, j.title, j.company_name, j.url, j.location, j.remote, j.seniority, j.source, j.posted_at, j.first_seen_at,
       cs.fit_prob, cs.final_score, cs.reasons, cs.missing_skills, cs.model, la.action AS last_action, ${SALARY_JSON}, ${BADGES_SQL}, ${COMPANY_KEY_SQL}
     FROM jobs j
     JOIN cs ON cs.job_id = j.id
@@ -138,8 +144,9 @@ export async function getInbox(): Promise<JobListItem[]> {
     LEFT JOIN salary_estimates se ON se.job_id = j.id
     WHERE j.closed_at IS NULL AND j.is_canonical AND la.action IS NULL
     ORDER BY cs.final_score DESC NULLS LAST
-    LIMIT 300`);
-  return rows<RawJob>(r).map(mapJob);
+    LIMIT ${cap}`);
+  const list = rows<RawJob & { total_count: number }>(r);
+  return { jobs: list.map(mapJob), total: list.length ? Number(list[0].total_count) : 0 };
 }
 
 export async function searchJobsLike(q: string): Promise<JobListItem[]> {

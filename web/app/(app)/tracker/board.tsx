@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { Clock, GripVertical, TriangleAlert } from "lucide-react";
+import { ChevronDown, Clock, GripVertical, TriangleAlert } from "lucide-react";
 import { CompanyLogo } from "@/components/company-logo";
 import { addFeedback } from "@/lib/actions";
 import type { TrackerCard, TrackerStage } from "@/lib/queries";
@@ -61,8 +61,13 @@ export function Board({ initial }: { initial: TrackerCard[] }) {
   );
 }
 
+const STEP = 20;
+
 function Column({ col, cards }: { col: (typeof COLUMNS)[number]; cards: TrackerCard[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
+  const [limit, setLimit] = useState(STEP);
+  const shown = cards.slice(0, limit);
+  const left = cards.length - shown.length;
   return (
     <section
       ref={setNodeRef}
@@ -79,9 +84,21 @@ function Column({ col, cards }: { col: (typeof COLUMNS)[number]; cards: TrackerC
         <span className="ml-auto rounded-full bg-muted px-2 font-mono text-[11px] tabular-nums text-fg-muted">{cards.length}</span>
       </header>
       <div className="flex min-h-40 flex-1 flex-col gap-2 px-2 pb-2">
-        {cards.map((c) => (
+        {shown.map((c) => (
           <DraggableCard key={c.id} card={c} />
         ))}
+        {left > 0 && (
+          <button
+            type="button"
+            onClick={() => setLimit((l) => l + STEP)}
+            data-testid={`show-more-${col.id}`}
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-xs font-medium text-fg-muted transition-colors outline-none hover:border-border-strong hover:bg-surface hover:text-fg focus-visible:ring-3 focus-visible:ring-ring/40 pointer-coarse:h-11 [&_svg]:size-3.5"
+          >
+            <ChevronDown aria-hidden />
+            Show {Math.min(STEP, left)} more
+            <span className="font-mono tabular-nums text-fg-subtle">({left} left)</span>
+          </button>
+        )}
         {cards.length === 0 && <p className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border px-3 py-8 text-center text-xs text-fg-subtle">Drop a job here</p>}
       </div>
     </section>

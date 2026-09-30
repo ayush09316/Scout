@@ -5,7 +5,7 @@ import { Select } from "@/components/ui/select";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bookmark, Inbox, Send, SlidersHorizontal, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { Bookmark, ChevronDown, Inbox, Send, SlidersHorizontal, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { CompanyLogo } from "@/components/company-logo";
 import { ScoreRing } from "@/components/score-ring";
@@ -50,7 +50,9 @@ const inTab = (j: JobListItem, t: Tab) => {
 };
 
 
-export function TodayInbox({ jobs, briefing }: { jobs: JobListItem[]; briefing: Briefing }) {
+const STEP = 50;
+
+export function TodayInbox({ jobs, total, cap, briefing }: { jobs: JobListItem[]; total: number; cap: number; briefing: Briefing }) {
   const router = useRouter();
   const wide = useMedia("(min-width: 1280px)");
   const [tab, setTab] = useState<Tab>(() => (jobs.some((j) => inTab(j, "top")) ? "top" : jobs.some((j) => inTab(j, "maybe")) ? "maybe" : "all"));
@@ -83,6 +85,17 @@ export function TodayInbox({ jobs, briefing }: { jobs: JobListItem[]; briefing: 
   const counts = useMemo(() => Object.fromEntries(tabs.map((t) => [t.id, filtered.filter((j) => inTab(j, t.id)).length])) as Record<Tab, number>, [filtered]);
   const visible = useMemo(() => filtered.filter((j) => inTab(j, tab)), [filtered, tab]);
   const current = visible[Math.min(sel, visible.length - 1)];
+  const viewKey = `${tab}|${JSON.stringify(f)}`;
+  const [more, setMore] = useState({ key: viewKey, n: STEP });
+  const limit = more.key === viewKey ? more.n : STEP;
+  const rendered = useMemo(() => visible.slice(0, limit), [visible, limit]);
+  const left = visible.length - rendered.length;
+  const showMore = () => setMore({ key: viewKey, n: limit + STEP });
+  const move = (d: 1 | -1) => {
+    const next = Math.max(0, Math.min(sel + d, visible.length - 1));
+    if (d === 1 && next >= limit - 1 && limit < visible.length) showMore();
+    setSel(next);
+  };
   const activeFilters = (Object.keys(DEFAULT) as (keyof Filters)[]).filter((k) => k !== "sort" && f[k] !== DEFAULT[k]).length;
 
   useEffect(() => {
@@ -111,10 +124,10 @@ export function TodayInbox({ jobs, briefing }: { jobs: JobListItem[]; briefing: 
   };
 
   useHotkeys({
-    j: () => setSel((s) => Math.min(s + 1, visible.length - 1)),
-    k: () => setSel((s) => Math.max(s - 1, 0)),
-    ArrowDown: () => setSel((s) => Math.min(s + 1, visible.length - 1)),
-    ArrowUp: () => setSel((s) => Math.max(s - 1, 0)),
+    j: () => move(1),
+    k: () => move(-1),
+    ArrowDown: () => move(1),
+    ArrowUp: () => move(-1),
     enter: () => current && router.push(`/job/${current.id}`),
     o: () => current && router.push(`/job/${current.id}`),
     u: () => current && act(current, "up"),
@@ -137,7 +150,7 @@ export function TodayInbox({ jobs, briefing }: { jobs: JobListItem[]; briefing: 
         title="Today"
         description={
           <>
-            <span className="font-serif text-[15px] text-fg italic">{jobs.length - hidden.size} fresh</span> matches to triage.{" "}
+            <span className="font-serif text-[15px] text-fg italic">{(total - hidden.size).toLocaleString("en-IN")} fresh</span> matches to triage.{" "}
             <span className="hidden md:inline">
               Use <Kbd>J</Kbd> <Kbd>K</Kbd> to move, <Kbd>S</Kbd> save, <Kbd>A</Kbd> apply.
             </span>
@@ -145,6 +158,11 @@ export function TodayInbox({ jobs, briefing }: { jobs: JobListItem[]; briefing: 
         }
       />
       <BriefingStrip b={briefing} />
+      {total > cap && (
+        <p data-testid="inbox-cap-note" className="mt-3 text-xs text-fg-subtle">
+          Showing your top {cap.toLocaleString("en-IN")} of {total.toLocaleString("en-IN")} matches by score. Triage or tighten your profile to surface the rest.
+        </p>
+      )}
 
       <div className="sticky top-14 z-20 -mx-4 mt-5 bg-bg/90 px-4 backdrop-blur md:top-0 md:mx-0 md:px-0">
         <div className="flex items-center justify-between gap-2 border-b border-border">
@@ -245,9 +263,17 @@ export function TodayInbox({ jobs, briefing }: { jobs: JobListItem[]; briefing: 
       ) : (
         <div className="mt-3 xl:grid xl:grid-cols-[460px_minmax(0,1fr)] xl:items-start xl:gap-5">
           <ul ref={listRef} className="space-y-2 xl:space-y-1.5" aria-label="Job matches">
-            {visible.map((j, i) => (
+            {rendered.map((j, i) => (
               <JobRow key={j.id} job={j} idx={i} selected={i === sel} split={wide} onSelect={() => setSel(i)} onAct={act} />
             ))}
+            {left > 0 && (
+              <li className="pt-1">
+                <Button variant="outline" className="w-full" onClick={showMore} data-testid="show-more">
+                  <ChevronDown />
+                  Show {Math.min(STEP, left)} more <span className="font-mono text-xs text-fg-subtle tabular-nums">({left.toLocaleString("en-IN")} left)</span>
+                </Button>
+              </li>
+            )}
           </ul>
           {wide && current && <PreviewPane job={current} onAct={act} />}
         </div>

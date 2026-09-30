@@ -60,7 +60,7 @@ export async function getLandingStats(): Promise<LandingStats> {
 
 export async function getPreviewJobs(): Promise<JobListItem[] | null> {
   try {
-    const jobs = await getInbox();
+    const jobs = await getInbox(50);
     const top = jobs.filter((j) => j.fitProb != null).slice(0, 4);
     return top.length >= 3 ? top : null;
   } catch {

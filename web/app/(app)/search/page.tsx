@@ -8,6 +8,8 @@ export const metadata: Metadata = { title: "Search" };
 
 type SP = Record<string, string | undefined>;
 
+const PAGE_SIZE = 20;
+
 async function facets() {
   const r = await db.execute(sql`
     SELECT
@@ -29,6 +31,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     minSalaryLpa: Number(sp.salary ?? 0) || 0,
     anywhere: sp.anywhere === "1",
   };
-  const [result, f] = await Promise.all([q ? hybridSearch(q, filters, 40) : Promise.resolve(null), facets()]);
-  return <SearchView q={q} filters={filters} result={result} facets={f} />;
+  const n = Math.floor(Number(sp.page));
+  const page = Number.isFinite(n) && n > 1 ? n : 1;
+  const [result, f] = await Promise.all([q ? hybridSearch(q, filters, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }) : Promise.resolve(null), facets()]);
+  const params = Object.fromEntries(Object.entries(sp).filter(([k, v]) => k !== "page" && typeof v === "string")) as Record<string, string>;
+  return <SearchView q={q} filters={filters} result={result} facets={f} pageSize={PAGE_SIZE} params={params} />;
 }

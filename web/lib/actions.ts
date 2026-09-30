@@ -118,14 +118,14 @@ export async function searchAction(q: string) {
   if (q.trim().length < 2) return { hits: [], mode: "keyword" as const };
   if (!isDemo() && !(await auth())) return { hits: [], mode: "keyword" as const };
   const { hybridSearch } = await import("./search");
-  const r = await hybridSearch(q.trim(), {}, 10);
+  const r = await hybridSearch(q.trim(), {}, { limit: 8, candidates: 50 });
   return { hits: r.hits, mode: r.mode };
 }
 
 export async function hybridSearchAction(q: string, filters: SearchFilters) {
-  if (!isDemo() && !(await auth())) return { hits: [], mode: "keyword" as const, ms: 0 };
+  if (!isDemo() && !(await auth())) return { hits: [], mode: "keyword" as const, ms: 0, total: 0, offset: 0 };
   const { hybridSearch } = await import("./search");
-  return hybridSearch(q, filters, 40);
+  return hybridSearch(q, filters, { limit: 20 });
 }
 
 async function readGuard(): Promise<{ demo: boolean } | null> {

@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty";
 import { Kbd } from "@/components/ui/kbd";
+import { Pagination } from "@/components/ui/pagination";
 import type { SearchFilters, SearchResult } from "@/lib/search";
 import { CITIES, MIN_SALARY_OPTIONS } from "@/lib/places";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,7 @@ function Headline({ text }: { text: string }) {
   );
 }
 
-export function SearchView({ q, filters, result, facets }: { q: string; filters: SearchFilters; result: SearchResult | null; facets: { seniority: string[]; sources: string[] } }) {
+export function SearchView({ q, filters, result, facets, pageSize, params }: { q: string; filters: SearchFilters; result: SearchResult | null; facets: { seniority: string[]; sources: string[] }; pageSize: number; params: Record<string, string> }) {
   const router = useRouter();
   const pathname = usePathname();
   const [text, setText] = useState(q);
@@ -57,6 +58,8 @@ export function SearchView({ q, filters, result, facets }: { q: string; filters:
 
   const active = (filters.remote !== "any" ? 1 : 0) + [filters.location, filters.seniority, filters.source, filters.minScore, filters.minSalaryLpa].filter(Boolean).length;
   const hits = result?.hits ?? [];
+  const total = result?.total ?? 0;
+  const page = result ? Math.floor(result.offset / pageSize) + 1 : 1;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
@@ -149,7 +152,8 @@ export function SearchView({ q, filters, result, facets }: { q: string; filters:
         <>
           <div className="mt-5 flex items-center justify-between gap-3 text-xs text-fg-subtle" data-testid="search-meta">
             <span>
-              {hits.length} result{hits.length === 1 ? "" : "s"}
+              {total.toLocaleString("en-IN")} result{total === 1 ? "" : "s"}
+              {total > pageSize ? ` · page ${page} of ${Math.ceil(total / pageSize)}` : ""}
               {result ? ` · ${result.ms}ms` : ""}
             </span>
             {result?.mode === "keyword" ? (
@@ -187,6 +191,7 @@ export function SearchView({ q, filters, result, facets }: { q: string; filters:
               ))}
             </ul>
           )}
+          {total > pageSize && <Pagination className="mt-5" page={page} pageSize={pageSize} total={total} basePath={pathname} searchParams={params} label="Search result pages" noun="results" />}
         </>
       )}
     </div>

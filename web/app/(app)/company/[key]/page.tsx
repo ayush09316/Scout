@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Building2 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
+import { Pagination } from "@/components/ui/pagination";
 import { CompanyLogo } from "@/components/company-logo";
 import { Stat } from "@/components/company-card";
 import { JobListRow } from "@/components/job-list-row";
@@ -24,11 +25,13 @@ function trackingDays(since: number) {
 
 const SEN_ORDER = ["intern", "junior", "mid", "senior", "staff", "principal", "lead", "manager", "unknown"];
 
-export default async function CompanyPage({ params }: { params: Promise<{ key: string }> }) {
+export default async function CompanyPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const key = decodeURIComponent((await params).key);
+  const sp = await searchParams;
+  const rawPage = Number(Array.isArray(sp.page) ? sp.page[0] : sp.page);
   const intel = await getCompanyIntel(key);
   if (!intel) notFound();
-  const [jobs, firstRun] = await Promise.all([getCompanyJobs(key), getFirstRunAt().catch(() => null)]);
+  const [{ jobs, total, page, pageSize }, firstRun] = await Promise.all([getCompanyJobs(key, { page: Number.isFinite(rawPage) ? rawPage : 1, pageSize: 20 }), getFirstRunAt().catch(() => null)]);
   const sinceMs = firstRun ? new Date(firstRun).getTime() : null;
   const young = sinceMs != null && trackingDays(sinceMs) < 30;
   const velocity = sinceMs == null ? intel.velocity : intel.velocity.filter((v) => new Date(`${v.week}T00:00:00Z`).getTime() + 7 * 86400000 > sinceMs);
@@ -134,14 +137,17 @@ export default async function CompanyPage({ params }: { params: Promise<{ key: s
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] [&>*]:min-w-0">
         <section aria-label="Open roles">
           <h2 className="mb-3 text-sm font-semibold">
-            Open roles <span className="font-mono text-xs font-normal text-fg-subtle tabular-nums">{jobs.length}</span>
+            Open roles <span className="font-mono text-xs font-normal text-fg-subtle tabular-nums" data-testid="open-roles-total">{total.toLocaleString("en-IN")}</span>
           </h2>
           {jobs.length ? (
-            <ul className="space-y-2">
-              {jobs.map((j) => (
-                <JobListRow key={j.id} job={j} hideCompany />
-              ))}
-            </ul>
+            <>
+              <ul className="space-y-2" data-testid="company-jobs">
+                {jobs.map((j) => (
+                  <JobListRow key={j.id} job={j} hideCompany />
+                ))}
+              </ul>
+              {total > pageSize && <Pagination className="mt-4" page={page} pageSize={pageSize} total={total} basePath={`/company/${encodeURIComponent(key)}`} searchParams={sp} label="Open roles pages" noun="roles" />}
+            </>
           ) : (
             <EmptyState icon={Building2} title="No open roles" description={`${intel.name} has nothing open right now. Closed roles still count towards velocity.`} />
           )}

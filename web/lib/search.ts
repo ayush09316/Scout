@@ -7,7 +7,8 @@ import { fxSqlCase } from "./format";
 
 export type SearchFilters = { remote?: "any" | "remote" | "onsite"; location?: string; seniority?: string; minScore?: number; source?: string; minSalaryLpa?: number; anywhere?: boolean };
 export type SearchHit = JobListItem & { headline: string | null; similarity: number | null; ftsRank: number | null; vecRank: number | null; rrf: number };
-export type SearchResult = { hits: SearchHit[]; mode: "hybrid" | "keyword"; ms: number };
+export type SearchResult = { hits: SearchHit[]; mode: "hybrid" | "keyword"; ms: number; total: number; offset: number };
+export type SearchOpts = { limit?: number; offset?: number; candidates?: number };
 
 const QUERY_PREFIX = "Represent this sentence for searching relevant passages: ";
 
@@ -68,17 +69,20 @@ function filterSql(f: SearchFilters): SQL {
   return sql.join(parts, sql` AND `);
 }
 
-export async function hybridSearch(q: string, f: SearchFilters = {}, limit = 30): Promise<SearchResult> {
+export async function hybridSearch(q: string, f: SearchFilters = {}, opts: SearchOpts = {}): Promise<SearchResult> {
   const t0 = Date.now();
+  const limit = Math.max(1, Math.floor(opts.limit ?? 30));
+  const offset = Math.max(0, Math.floor(opts.offset ?? 0));
+  const candidates = Math.max(limit, Math.min(500, Math.floor(opts.candidates ?? 200)));
   const query = q.trim().slice(0, 300);
-  if (!query) return { hits: [], mode: "keyword", ms: 0 };
+  if (!query) return { hits: [], mode: "keyword", ms: 0, total: 0, offset };
   const vec = await embedQuery(query);
   const where = filterSql(f);
   const vecLit = vec ? `[${vec.map((x) => x.toFixed(6)).join(",")}]` : null;
   const vecCte = vecLit
     ? sql`, vec AS (
         SELECT id, row_number() OVER (ORDER BY d, id DESC) AS rk FROM (
-          SELECT j.id, j.embedding <=> ${vecLit}::vector AS d FROM jobs j WHERE ${where} AND j.embedding IS NOT NULL ORDER BY d, j.id DESC LIMIT 50
+          SELECT j.id, j.embedding <=> ${vecLit}::vector AS d FROM jobs j WHERE ${where} AND j.embedding IS NOT NULL ORDER BY d, j.id DESC LIMIT ${candidates}
         ) v)`
     : sql`, vec AS (SELECT NULL::bigint AS id, NULL::bigint AS rk WHERE false)`;
   const r = await db.transaction(async (tx) => {
@@ -90,15 +94,15 @@ export async function hybridSearch(q: string, f: SearchFilters = {}, limit = 30)
     tq AS (SELECT CASE WHEN (SELECT has_hit FROM hit0) THEN q ELSE CAST(replace(CAST(q AS text), ' & ', ' | ') AS tsquery) END AS q FROM tq0),
     fts AS (
       SELECT id, rank, row_number() OVER (ORDER BY rank DESC, id DESC) AS rk FROM (
-        SELECT j.id, ts_rank_cd(j.search_tsv, tq.q) AS rank FROM jobs j, tq WHERE ${where} AND j.search_tsv @@ tq.q ORDER BY rank DESC, j.id DESC LIMIT 50
+        SELECT j.id, ts_rank_cd(j.search_tsv, tq.q) AS rank FROM jobs j, tq WHERE ${where} AND j.search_tsv @@ tq.q ORDER BY rank DESC, j.id DESC LIMIT ${candidates}
       ) f)
     ${vecCte},
-    fused AS (
+    fused_all AS (
       SELECT COALESCE(fts.id, vec.id) AS id, fts.rk AS frk, vec.rk AS vrk,
         COALESCE(1.0 / (60 + fts.rk), 0) + COALESCE(1.0 / (60 + vec.rk), 0) AS rrf
-      FROM fts FULL OUTER JOIN vec ON vec.id = fts.id
-      ORDER BY rrf DESC, id ASC LIMIT ${limit})
-    SELECT ${JOB_COLS}, fused.frk, fused.vrk, fused.rrf,
+      FROM fts FULL OUTER JOIN vec ON vec.id = fts.id),
+    fused AS (SELECT *, COUNT(*) OVER () AS total FROM fused_all ORDER BY rrf DESC, id ASC LIMIT ${limit} OFFSET ${offset})
+    SELECT ${JOB_COLS}, fused.frk, fused.vrk, fused.rrf, fused.total AS fused_total,
       ${vecLit ? sql`CASE WHEN j.embedding IS NOT NULL THEN 1 - (j.embedding <=> ${vecLit}::vector) END` : sql`NULL::float`} AS similarity,
       CASE WHEN fused.frk IS NOT NULL THEN ts_headline('english', left(j.title || '. ' || regexp_replace(j.description_md, '[#*_>\`|-]+', ' ', 'g'), 20000), (SELECT q FROM tq),
         'StartSel=<<, StopSel=>>, MaxWords=26, MinWords=12, MaxFragments=2, FragmentDelimiter= … ') END AS headline
@@ -115,5 +119,14 @@ export async function hybridSearch(q: string, f: SearchFilters = {}, limit = 30)
     vecRank: raw[i].vrk == null ? null : Number(raw[i].vrk),
     rrf: Number(raw[i].rrf),
   }));
-  return { hits, mode: vecLit ? "hybrid" : "keyword", ms: Date.now() - t0 };
+  if (!hits.length && offset > 0) {
+    const first = await hybridSearch(q, f, { limit: 1, offset: 0, candidates });
+    if (first.total > 0) {
+      const last = Math.floor((first.total - 1) / limit) * limit;
+      return hybridSearch(q, f, { limit, offset: last, candidates });
+    }
+    return { ...first, hits: [], offset: 0 };
+  }
+  const total = raw.length ? Number(raw[0].fused_total) : 0;
+  return { hits, mode: vecLit ? "hybrid" : "keyword", ms: Date.now() - t0, total, offset };
 }

@@ -111,7 +111,7 @@ ${loc}. Hybrid options available.
 }
 
 async function main() {
-  await sql`TRUNCATE companies, jobs, profile, scores, feedback, runs, labels, cover_notes, eval_reports, settings, job_versions, job_events, salary_estimates, company_stats, skill_gaps, resume_variants, interview_packs, reminders, chat_messages RESTART IDENTITY CASCADE`;
+  await sql`TRUNCATE companies, jobs, profile, scores, feedback, runs, labels, cover_notes, eval_reports, settings, job_versions, job_events, salary_estimates, company_stats, skill_gaps, resume_variants, interview_packs, reminders RESTART IDENTITY CASCADE`;
 
   const compRows = await sql`INSERT INTO companies ${sql(
     companies.map((c, i) => ({ name: c.name, ats: c.ats, slug: c.slug, tier: c.tier, active: i !== 14, last_fetched_at: new Date(now - 3600000) })),
@@ -160,7 +160,7 @@ Python, Django, PostgreSQL, Redis, Celery, TypeScript, React, Next.js, Node.js, 
   const jobRows: { id: number; hash: string; company: string; title: string; skills: readonly string[]; min: number; max: number; sen: string; tier: number; remote: boolean }[] = [];
   let groupCounter = 1;
   for (let i = 0; i < 120; i++) {
-    const ci = i < 15 ? i : Math.floor(rand() * companies.length);
+    const ci = i < 15 ? i : i % 3 === 0 ? (rand(), 13) : Math.floor(rand() * companies.length);
     const c = companies[ci];
     const r = pick(roles);
     const loc = pick(locations);
