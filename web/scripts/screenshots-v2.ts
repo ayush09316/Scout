@@ -12,7 +12,6 @@ type Shot = { name: string; path: string; full?: boolean; act?: (p: Page) => Pro
 const shots: Shot[] = [
   { name: "search-empty", path: "/search" },
   { name: "search", path: "/search?q=backend%20python%20payments" },
-  { name: "insights", path: "/insights", full: true },
   { name: "company", path: `/company/${J.company}`, full: true },
   { name: "company-live", path: `/company/${J.live}` },
   { name: "chat-empty", path: "/chat" },

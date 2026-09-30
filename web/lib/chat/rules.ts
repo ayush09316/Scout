@@ -89,7 +89,7 @@ export function answerRules(q: string, intent: string, results: { name: string; 
       return `Your biggest gaps, by how many more matches each would unlock:\n\n${gaps
         .slice(0, 8)
         .map((g, i) => `${i + 1}. **${g.skill}** — unlocks ${g.jobs_unlocked} more match${g.jobs_unlocked === 1 ? "" : "es"} (${g.jobs_mentioning} postings mention it)`)
-        .join("\n")}\n\nSee [Insights](/insights) for example jobs per skill.`;
+        .join("\n")}`;
     }
     case "salary_up": {
       const ev = res as unknown as SqlOut;

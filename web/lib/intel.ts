@@ -4,7 +4,6 @@ import { db } from "./db";
 import { BADGES_SQL, COMPANY_KEY_SQL, SALARY_JSON, type JobListItem } from "./queries";
 import type { JobEventKind, PrepPack, ReminderKind, VelocityPoint } from "./db/schema";
 import { fxSqlCase, type Salary } from "./format";
-import { CITIES } from "./places";
 import { SKILLS, displaySkill } from "./skills";
 import { mapJobRow } from "./job-map";
 
@@ -218,33 +217,6 @@ export async function getSkillGaps(limit = 25): Promise<{ version: number | null
         .slice(0, 4)
         .map((j) => ({ id: Number(j.id), title: j.title, companyName: j.company_name })),
     })),
-  };
-}
-
-export type MarketOverview = { openJobs: number; remoteShare: number; topSkills: SkillCount[]; cities: { city: string; count: number }[]; topCompanies: { name: string; key: string; count: number }[] };
-
-export async function getMarketOverview(): Promise<MarketOverview> {
-  const open = sql`j.closed_at IS NULL AND j.is_canonical`;
-  const cityCols = sql.join(
-    CITIES.map((c, i) => {
-      const pats = c === "Bengaluru" ? ["%bengaluru%", "%bangalore%"] : c === "Gurugram" ? ["%gurugram%", "%gurgaon%"] : [`%${c.toLowerCase()}%`];
-      return sql`COUNT(*) FILTER (WHERE ${sql.join(pats.map((p) => sql`j.location ILIKE ${p}`), sql` OR `)})::int AS ${sql.raw(`c${i}`)}`;
-    }),
-    sql`, `,
-  );
-  const [baseR, topR, skills] = await Promise.all([
-    db.execute(sql`SELECT COUNT(*)::int AS open, COALESCE(AVG(CASE WHEN j.remote THEN 1 ELSE 0 END), 0)::float AS remote, ${cityCols} FROM jobs j WHERE ${open}`),
-    db.execute(sql`SELECT j.company_name AS name, j.count, ${COMPANY_KEY_SQL} FROM (
-      SELECT j.company_name, MIN(j.company_id) AS company_id, COUNT(*)::int AS count FROM jobs j WHERE ${open} GROUP BY 1 ORDER BY 3 DESC LIMIT 8) j`),
-    liveSkillCounts(open, 12),
-  ]);
-  const b = rows<Record<string, number>>(baseR)[0] ?? {};
-  return {
-    openJobs: Number(b.open ?? 0),
-    remoteShare: Number(b.remote ?? 0),
-    topSkills: skills,
-    cities: CITIES.map((c, i) => ({ city: c, count: Number(b[`c${i}`] ?? 0) })).filter((c) => c.count > 0).sort((a, b) => b.count - a.count),
-    topCompanies: rows<{ name: string; count: number; company_key: string }>(topR).map((c) => ({ name: c.name, count: c.count, key: c.company_key })),
   };
 }
 

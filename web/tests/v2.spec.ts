@@ -6,12 +6,6 @@ test("search page returns hybrid results with match reasons", async ({ page }) =
   await expect(page.getByTestId("match-why").first()).toContainText(/keyword #|similar/);
 });
 
-test("insights shows skill gaps and market overview", async ({ page }) => {
-  await page.goto("/insights");
-  await expect(page.getByTestId("gap-row").first()).toContainText("unlocks");
-  await expect(page.getByTestId("market-skills")).toBeVisible();
-});
-
 test("company page shows stats and open roles", async ({ page }) => {
   await page.goto("/company/razorpay");
   await expect(page.getByRole("heading", { name: "Razorpay" })).toBeVisible();
