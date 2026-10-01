@@ -58,6 +58,20 @@ def run(database_url: str | None = typer.Option(None, envvar="DATABASE_URL")) ->
         raise typer.Exit(1)
 
 
+@app.command("cron-gate")
+def cron_gate(database_url: str | None = typer.Option(None, envvar="DATABASE_URL")) -> None:
+    import os
+
+    from scout.db.session import get_setting, session_scope
+
+    with session_scope(database_url) as session:
+        enabled = get_setting(session, "cron_enabled", False) is True
+    console.print(f"scheduled runs {'enabled' if enabled else 'paused — turn on from Health in the dashboard'}")
+    if out := os.environ.get("GITHUB_OUTPUT"):
+        with open(out, "a") as f:
+            f.write(f"enabled={'true' if enabled else 'false'}\n")
+
+
 @companies_app.command("sync")
 def companies_sync(file: Path = typer.Option(None, "--file", "-f")) -> None:
     from scout.companies import load_companies_file, sync_companies

@@ -4,10 +4,13 @@ import { PageHeader } from "@/components/app-shell";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty";
-import { getLatestEval, getRuns } from "@/lib/queries";
+import { getCronEnabled, getLatestEval, getRuns } from "@/lib/queries";
+import { ownerSession } from "@/auth";
+import { isDemo } from "@/lib/env";
 import type { RunCounts, ScorerMetrics } from "@/lib/db/schema";
 import { cn, timeAgo } from "@/lib/utils";
 import { CalibrationChart, CostChart, FetchedChart, RunsCard } from "./charts";
+import { CronSwitch } from "./cron-switch";
 
 export const metadata: Metadata = { title: "Health" };
 
@@ -20,7 +23,8 @@ const METRICS: { key: keyof ScorerMetrics; label: string; better: "high" | "low"
 ];
 
 export default async function HealthPage() {
-  const [runs, evalR] = await Promise.all([getRuns(14), getLatestEval()]);
+  const [runs, evalR, owner] = await Promise.all([getRuns(14), getLatestEval(), isDemo() ? null : ownerSession()]);
+  const cronOn = owner ? await getCronEnabled() : false;
   const last = runs[runs.length - 1];
   const totalCost = runs.reduce((a, r) => a + r.costUsd, 0);
   const errors = runs.flatMap((r) => r.errors.map((e) => ({ ...e, runId: r.id, when: r.startedAt }))).reverse();
@@ -68,7 +72,7 @@ export default async function HealthPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
-      <PageHeader title="Health" description="Pipeline runs, spend and scorer quality." />
+      <PageHeader title="Health" description="Pipeline runs, spend and scorer quality." actions={owner ? <CronSwitch enabled={cronOn} /> : null} />
 
       {runs.length === 0 ? (
         <div className="mt-6">

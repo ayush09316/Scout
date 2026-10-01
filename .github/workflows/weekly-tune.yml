@@ -22,9 +22,14 @@ jobs:
           cache: pip
           cache-dependency-path: pipeline/pyproject.toml
       - run: pip install -e pipeline
-      - run: scout calibrate
-      - run: scout tune --metrics-file metrics/latest.json
-      - name: commit metrics
+      - id: gate
+        run: scout cron-gate
+      - if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.enabled == 'true'
+        run: scout calibrate
+      - if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.enabled == 'true'
+        run: scout tune --metrics-file metrics/latest.json
+      - if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.enabled == 'true'
+        name: commit metrics
         run: |
           git config user.name "scout-bot"
           git config user.email "scout-bot@users.noreply.github.com"

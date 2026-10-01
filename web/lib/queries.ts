@@ -401,6 +401,11 @@ export async function getLatestEval(): Promise<{ createdAt: string; report: Eval
   return x ? { createdAt: iso(x.created_at)!, report: normalizeEval(x.report) } : null;
 }
 
+export async function getCronEnabled(): Promise<boolean> {
+  const r = await db.execute(sql`SELECT value FROM settings WHERE key = 'cron_enabled'`);
+  return rows<{ value: unknown }>(r)[0]?.value === true;
+}
+
 export async function getCompanies() {
   const r = await db.execute(sql`
     SELECT c.id, c.name, c.ats, c.slug, c.tier, c.active, c.last_fetched_at,

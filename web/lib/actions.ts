@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { ownerSession as auth } from "@/auth";
 import { db } from "./db";
-import { companies, coverNotes, feedback, interviewPacks, labels, profile, resumeVariants, FEEDBACK_ACTIONS, type FeedbackAction, type Preferences, type PrepPack } from "./db/schema";
+import { companies, coverNotes, feedback, interviewPacks, labels, profile, resumeVariants, settings, FEEDBACK_ACTIONS, type FeedbackAction, type Preferences, type PrepPack } from "./db/schema";
 import type { SearchFilters } from "./search";
 import type { TailorResult } from "./tailor";
 import { dismissReminderRow, snoozeReminderRow } from "./reminders";
@@ -111,6 +111,17 @@ export async function updateCompany(id: number, patch: { active?: boolean; tier?
   if (patch.tier && [1, 2, 3].includes(patch.tier)) set.tier = patch.tier;
   await db.update(companies).set(set).where(and(eq(companies.id, id)));
   revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function setCronEnabled(enabled: boolean): Promise<ActionResult> {
+  const g = await guard();
+  if (g) return g;
+  await db
+    .insert(settings)
+    .values({ key: "cron_enabled", value: enabled })
+    .onConflictDoUpdate({ target: settings.key, set: { value: enabled } });
+  revalidatePath("/health");
   return { ok: true };
 }
 
