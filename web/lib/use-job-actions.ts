@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { addFeedback, addFeedbackBatch, labelJob, labelJobs, undoFeedback, undoFeedbackBatch, unlabelJob, unlabelJobs } from "./actions";
+import { addFeedback, addFeedbackBatch, labelJob, labelJobs, undoFeedback, undoFeedbackBatch, unlabelJob, unlabelJobs, type ActionResult } from "./actions";
 import type { FeedbackAction } from "./db/schema";
 import type { JobListItem } from "./queries";
 import { handleResult } from "./toast";
@@ -26,7 +26,7 @@ export function useJobActions({ hide, restore }: { hide?: (ids: number[]) => voi
     const ids = jobs.map((j) => j.id);
     const one = jobs.length === 1;
     if (one && action === "applied") window.open(jobs[0].url, "_blank", "noopener,noreferrer");
-    const res = one ? await addFeedback(ids[0], action) : await addFeedbackBatch(ids, action);
+    const res: ActionResult<{ id: number } | { ids: number[] }> = one ? await addFeedback(ids[0], action) : await addFeedbackBatch(ids, action);
     const fb = res.ok && res.data ? ("id" in res.data ? [res.data.id] : res.data.ids) : [];
     const msg = one ? `${ONE[action] ?? "Updated"} · ${jobs[0].companyName}` : (MANY[action]?.(jobsN(ids.length)) ?? `Updated ${jobsN(ids.length)}`);
     const ok = handleResult(res, msg, {

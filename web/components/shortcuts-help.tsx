@@ -6,7 +6,7 @@ import { useUI } from "./ui-context";
 
 const groups = [
   { title: "Global", items: [["⌘ K", "Command palette"], ["/", "Search"], ["?", "This help"], ["G T", "Go to Today"], ["G R", "Go to Tracker"], ["G L", "Go to Label"], ["G F", "Go to Search"], ["G H", "Go to Health"], ["G S", "Go to Settings"]] },
-  { title: "Today", items: [["J / K", "Next / previous"], ["Enter", "Open job"], ["U", "Thumbs up"], ["D", "Thumbs down"], ["S", "Save"], ["A", "Apply (opens link)"], ["1 2 3", "Switch tab"]] },
+  { title: "Today", items: [["J / K", "Next / previous"], ["Enter", "Open job"], ["U", "Thumbs up"], ["D", "Thumbs down"], ["S", "Save"], ["A", "Apply (opens link)"], ["X", "Select row"], ["⌘ A", "Select all"], ["Esc", "Clear selection"], ["1 2 3", "Switch tab"]] },
   { title: "Label", items: [["Y", "Fit"], ["N", "Not a fit"], ["K", "Back"], ["→", "Skip"]] },
   { title: "Job", items: [["T", "Tailor resume"], ["P", "Interview prep"]] },
 ];

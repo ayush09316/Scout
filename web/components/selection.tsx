@@ -2,7 +2,10 @@
 
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, CheckCheck, LoaderCircle, X, type LucideIcon } from "lucide-react";
+import { Bookmark, Check, CheckCheck, CircleCheck, CircleX, EyeOff, LoaderCircle, ThumbsUp, X, type LucideIcon } from "lucide-react";
+import type { FeedbackAction } from "@/lib/db/schema";
+import type { JobListItem } from "@/lib/queries";
+import type { JobActions } from "@/lib/use-job-actions";
 import { cn } from "@/lib/utils";
 
 export function useSelection(order: number[]) {
@@ -57,8 +60,27 @@ export function SelectBox({ checked, active, label, onToggle }: { checked: boole
 
 export type BulkAction = { key: string; label: string; icon: LucideIcon; kbd?: string; run: () => Promise<unknown> };
 
+export function jobBulk(acts: JobActions, jobs: JobListItem[], clear: () => void, hints = false) {
+  const wrap = (run: () => Promise<boolean>) => async () => {
+    if (await run()) clear();
+  };
+  const feedback = (a: FeedbackAction) => wrap(() => acts.feedback(jobs, a));
+  const label = (l: "fit" | "no") => wrap(() => acts.label(jobs, l));
+  const k = (key: string) => (hints ? key : undefined);
+  const actions: (BulkAction | "divider")[] = [
+    "divider",
+    { key: "up", label: "Good match", icon: ThumbsUp, kbd: k("U"), run: feedback("up") },
+    { key: "saved", label: "Save", icon: Bookmark, kbd: k("S"), run: feedback("saved") },
+    { key: "down", label: "Dismiss", icon: EyeOff, kbd: k("D"), run: feedback("down") },
+    "divider",
+    { key: "fit", label: "Label fit", icon: CircleCheck, run: label("fit") },
+    { key: "no", label: "Label not a fit", icon: CircleX, run: label("no") },
+  ];
+  return { feedback, actions };
+}
+
 const barBtn =
-  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-bg/90 transition-colors hover:bg-bg/10 hover:text-bg active:bg-bg/15 disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none sm:px-2.5 [&_svg]:size-4 [&_svg]:shrink-0";
+  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1.5 text-[13px] font-medium text-bg/90 transition-colors hover:bg-bg/10 hover:text-bg active:bg-bg/15 disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none sm:px-2.5 [&_svg]:size-4 [&_svg]:shrink-0";
 
 const Divider = () => <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-bg/15" />;
 
@@ -79,7 +101,7 @@ export function SelectionToolbar({ count, total, onSelectAll, onClear, actions }
         role="toolbar"
         aria-label="Selection actions"
         data-testid="selection-toolbar"
-        className="pointer-events-auto flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-fg p-1 text-bg shadow-lg ring-1 ring-black/5"
+        className="pointer-events-auto flex max-w-full items-center overflow-x-auto sm:gap-0.5 rounded-xl bg-fg p-1 text-bg shadow-lg ring-1 ring-black/5"
       >
         <button type="button" className={barBtn} onClick={onClear} aria-label="Clear selection" title="Clear selection · Esc">
           <X />

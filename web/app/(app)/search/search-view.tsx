@@ -5,12 +5,15 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { LoaderCircle, ScanSearch, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { JobListRow } from "@/components/job-list-row";
+import { jobBulk, SelectionToolbar, useSelection } from "@/components/selection";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty";
 import { Kbd } from "@/components/ui/kbd";
 import { Pagination } from "@/components/ui/pagination";
+import { useHotkeys } from "@/lib/hotkeys";
 import type { SearchFilters, SearchResult } from "@/lib/search";
+import { useJobActions } from "@/lib/use-job-actions";
 import { CITIES, MIN_SALARY_OPTIONS } from "@/lib/places";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +63,12 @@ export function SearchView({ q, filters, result, facets, pageSize, params }: { q
   const hits = result?.hits ?? [];
   const total = result?.total ?? 0;
   const page = result ? Math.floor(result.offset / pageSize) + 1 : 1;
+  const acts = useJobActions();
+  const pick = useSelection(hits.map((h) => h.id));
+  const pickedJobs = hits.filter((h) => pick.has(h.id));
+  const bulk = jobBulk(acts, pickedJobs, pick.clear);
+
+  useHotkeys(pick.active ? { Escape: pick.clear } : {});
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
@@ -169,11 +178,24 @@ export function SearchView({ q, filters, result, facets, pageSize, params }: { q
               <EmptyState icon={ScanSearch} title="No matches" description="Try fewer words, a different phrasing, or loosen the filters." />
             </div>
           ) : (
-            <ul className={cn("mt-3 space-y-2 transition-opacity", pending && "opacity-60")} aria-label="Search results" data-testid="search-results">
+            <ul
+              className={cn("mt-3 space-y-2 transition-opacity", pending && "opacity-60")}
+              aria-label="Search results"
+              data-testid="search-results"
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "a" && (e.target as HTMLElement).closest("[role=menu]") == null) {
+                  e.preventDefault();
+                  pick.selectAll();
+                }
+              }}
+            >
               {hits.map((h) => (
                 <JobListRow
                   key={h.id}
                   job={h}
+                  picked={pick.has(h.id)}
+                  picking={pick.active}
+                  onPick={(range) => pick.toggle(h.id, range)}
                   extra={
                     <>
                       {h.headline && <Headline text={h.headline} />}
@@ -191,6 +213,13 @@ export function SearchView({ q, filters, result, facets, pageSize, params }: { q
               ))}
             </ul>
           )}
+          <SelectionToolbar
+            count={pickedJobs.length}
+            total={hits.length}
+            onSelectAll={pick.selectAll}
+            onClear={pick.clear}
+            actions={bulk.actions}
+          />
           {total > pageSize && <Pagination className="mt-5" page={page} pageSize={pageSize} total={total} basePath={pathname} searchParams={params} label="Search result pages" noun="results" />}
         </>
       )}

@@ -1,10 +1,9 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeaderSkeleton, Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
-      <Skeleton className="h-7 w-40" />
-      <Skeleton className="mt-2 h-4 w-72" />
+      <PageHeaderSkeleton title="w-40" />
       <Skeleton className="mt-6 h-9 w-full max-w-md" />
       <div className="mt-4 space-y-2">
         {Array.from({ length: 6 }).map((_, i) => (

@@ -13,7 +13,9 @@ import { LocationChips, SkillChips } from "@/components/job-chips";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty";
 import { Kbd } from "@/components/ui/kbd";
-import { addFeedback, undoFeedback } from "@/lib/actions";
+import { JobContextMenu } from "@/components/job-context-menu";
+import { jobBulk, SelectBox, SelectionToolbar, useSelection } from "@/components/selection";
+import { useJobActions, type JobActions } from "@/lib/use-job-actions";
 import type { FeedbackAction } from "@/lib/db/schema";
 import { useHotkeys } from "@/lib/hotkeys";
 import type { Briefing, JobListItem } from "@/lib/queries";
@@ -21,7 +23,6 @@ import { useMedia } from "@/lib/use-media";
 import { humanizeReasons } from "@/lib/reasons";
 import { BriefingStrip } from "./briefing";
 import { PreviewPane } from "./preview-pane";
-import { handleResult } from "@/lib/toast";
 import { cn, formatDateTime, timeAgo } from "@/lib/utils";
 import { MIN_SALARY_OPTIONS, places } from "@/lib/places";
 import { salaryTop } from "@/lib/format";
@@ -102,26 +103,19 @@ export function TodayInbox({ jobs, total, cap, briefing }: { jobs: JobListItem[]
     listRef.current?.querySelector<HTMLElement>(`[data-idx="${sel}"]`)?.scrollIntoView({ block: "nearest" });
   }, [sel]);
 
-  const act = async (job: JobListItem, action: FeedbackAction) => {
-    if (action === "applied") window.open(job.url, "_blank", "noopener,noreferrer");
-    const labels: Record<string, string> = { up: "Marked as a good match", down: "Hidden — noted as not a fit", saved: "Saved to tracker", applied: "Logged as applied" };
-    const res = await addFeedback(job.id, action);
-    if (
-      handleResult(res, `${labels[action]} · ${job.companyName}`, {
-        undo: async () => {
-          if (res.ok && res.data) await undoFeedback(res.data.id);
-          setHidden((h) => {
-            const n = new Set(h);
-            n.delete(job.id);
-            return n;
-          });
-        },
-      })
-    ) {
-      setHidden((h) => new Set(h).add(job.id));
-      router.refresh();
-    }
-  };
+  const acts = useJobActions({
+    hide: (ids) => setHidden((h) => new Set([...h, ...ids])),
+    restore: (ids) =>
+      setHidden((h) => {
+        const n = new Set(h);
+        ids.forEach((id) => n.delete(id));
+        return n;
+      }),
+  });
+  const act = (job: JobListItem, action: FeedbackAction) => acts.feedback([job], action);
+  const pick = useSelection(visible.map((j) => j.id));
+  const pickedJobs = visible.filter((j) => pick.has(j.id));
+  const bulk = jobBulk(acts, pickedJobs, pick.clear, true);
 
   useHotkeys({
     j: () => move(1),
@@ -130,9 +124,11 @@ export function TodayInbox({ jobs, total, cap, briefing }: { jobs: JobListItem[]
     ArrowUp: () => move(-1),
     enter: () => current && router.push(`/job/${current.id}`),
     o: () => current && router.push(`/job/${current.id}`),
-    u: () => current && act(current, "up"),
-    d: () => current && act(current, "down"),
-    s: () => current && act(current, "saved"),
+    u: () => (pick.active ? bulk.feedback("up")() : current && act(current, "up")),
+    d: () => (pick.active ? bulk.feedback("down")() : current && act(current, "down")),
+    s: () => (pick.active ? bulk.feedback("saved")() : current && act(current, "saved")),
+    x: () => current && pick.toggle(current.id),
+    ...(pick.active ? { Escape: pick.clear } : {}),
     a: () => current && act(current, "applied"),
     "1": () => (setTab("top"), setSel(0)),
     "2": () => (setTab("maybe"), setSel(0)),
@@ -262,9 +258,32 @@ export function TodayInbox({ jobs, total, cap, briefing }: { jobs: JobListItem[]
         </div>
       ) : (
         <div className="mt-3 xl:grid xl:grid-cols-[460px_minmax(0,1fr)] xl:items-start xl:gap-5">
-          <ul ref={listRef} className="space-y-2 xl:space-y-1.5" aria-label="Job matches">
+          <ul
+            ref={listRef}
+            tabIndex={-1}
+            className="space-y-2 outline-none xl:space-y-1.5"
+            aria-label="Job matches"
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "a" && (e.target as HTMLElement).closest("[role=menu]") == null) {
+                e.preventDefault();
+                pick.selectAll();
+              }
+            }}
+          >
             {rendered.map((j, i) => (
-              <JobRow key={j.id} job={j} idx={i} selected={i === sel} split={wide} onSelect={() => setSel(i)} onAct={act} />
+              <JobRow
+                key={j.id}
+                job={j}
+                idx={i}
+                selected={i === sel}
+                split={wide}
+                picked={pick.has(j.id)}
+                picking={pick.active}
+                acts={acts}
+                onSelect={() => setSel(i)}
+                onPick={(range) => pick.toggle(j.id, range)}
+                onAct={act}
+              />
             ))}
             {left > 0 && (
               <li className="pt-1">
@@ -278,72 +297,108 @@ export function TodayInbox({ jobs, total, cap, briefing }: { jobs: JobListItem[]
           {wide && current && <PreviewPane job={current} onAct={act} />}
         </div>
       )}
+      <SelectionToolbar
+        count={pickedJobs.length}
+        total={visible.length}
+        onSelectAll={pick.selectAll}
+        onClear={pick.clear}
+        actions={bulk.actions}
+      />
     </div>
   );
 }
 
-function JobRow({ job, idx, selected, split, onSelect, onAct }: { job: JobListItem; idx: number; selected: boolean; split: boolean; onSelect: () => void; onAct: (j: JobListItem, a: FeedbackAction) => void }) {
+function JobRow({
+  job,
+  idx,
+  selected,
+  split,
+  picked,
+  picking,
+  acts,
+  onSelect,
+  onPick,
+  onAct,
+}: {
+  job: JobListItem;
+  idx: number;
+  selected: boolean;
+  split: boolean;
+  picked: boolean;
+  picking: boolean;
+  acts: JobActions;
+  onSelect: () => void;
+  onPick: (range: boolean) => void;
+  onAct: (j: JobListItem, a: FeedbackAction) => void;
+}) {
   const posted = job.postedAt ?? job.firstSeenAt;
   const reason = humanizeReasons(job.reasons)[0];
   return (
-    <li
-      data-idx={idx}
-      data-testid="job-card"
-      aria-current={selected ? "true" : undefined}
-      onMouseEnter={split ? undefined : onSelect}
-      onClick={split ? onSelect : undefined}
-      className={cn(
-        "group relative rounded-xl border bg-surface shadow-card transition-[border-color,box-shadow,background-color]",
-        split && "cursor-pointer",
-        selected ? "border-accent/60 ring-2 ring-accent/15 xl:bg-accent-soft/30" : "border-border hover:border-border-strong",
-      )}
-    >
-      <div className="flex gap-3 px-3.5 py-3 sm:gap-3.5 xl:px-3 xl:py-2.5">
-        <CompanyLogo name={job.companyName} domain={job.companyDomain} size={split ? 34 : 40} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <Link
-                href={`/job/${job.id}`}
-                className={cn("block truncate text-[15px] font-semibold text-fg hover:text-accent focus-visible:outline-none xl:text-sm", !split && "after:absolute after:inset-0")}
-              >
-                {job.title}
-              </Link>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-fg-muted xl:text-xs">
-                <Link href={`/company/${job.companyKey}`} className="relative z-10 font-medium text-fg hover:text-accent hover:underline">
-                  {job.companyName}
+    <JobContextMenu job={job} actions={acts} hints picked={picked} onPick={() => onPick(false)} onOpenChange={(o) => o && onSelect()}>
+      <li
+        data-idx={idx}
+        data-testid="job-card"
+        aria-current={selected ? "true" : undefined}
+        data-picked={picked || undefined}
+        onMouseEnter={split ? undefined : onSelect}
+        onClick={split ? onSelect : undefined}
+        className={cn(
+          "group relative rounded-xl border bg-surface shadow-card transition-[border-color,box-shadow,background-color]",
+          split && "cursor-pointer",
+          selected ? "border-accent/60 ring-2 ring-accent/15 xl:bg-accent-soft/30" : "border-border hover:border-border-strong",
+          picked && "bg-accent-soft/40 xl:bg-accent-soft/50",
+        )}
+      >
+        <div className="flex gap-3 px-3.5 py-3 sm:gap-3.5 xl:px-3 xl:py-2.5">
+          <div className="relative shrink-0 self-start">
+            <CompanyLogo name={job.companyName} domain={job.companyDomain} size={split ? 34 : 40} />
+            <SelectBox checked={picked} active={picking} label={`Select ${job.title} at ${job.companyName}`} onToggle={onPick} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={`/job/${job.id}`}
+                  className={cn("block truncate text-[15px] font-semibold text-fg hover:text-accent focus-visible:outline-none xl:text-sm", !split && "after:absolute after:inset-0")}
+                >
+                  {job.title}
                 </Link>
-                <span aria-hidden className="text-fg-subtle">·</span>
-                <span className="text-fg-subtle" title={formatDateTime(posted)}>
-                  {timeAgo(posted)} ago
-                </span>
-                {job.seniority && (
-                  <span className="capitalize text-fg-subtle before:mr-2 before:text-fg-subtle before:content-['·'] xl:hidden">{job.seniority}</span>
-                )}
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-fg-muted xl:text-xs">
+                  <Link href={`/company/${job.companyKey}`} className="relative z-10 font-medium text-fg hover:text-accent hover:underline">
+                    {job.companyName}
+                  </Link>
+                  <span aria-hidden className="text-fg-subtle">·</span>
+                  <span className="text-fg-subtle" title={formatDateTime(posted)}>
+                    {timeAgo(posted)} ago
+                  </span>
+                  {job.seniority && (
+                    <span className="capitalize text-fg-subtle before:mr-2 before:text-fg-subtle before:content-['·'] xl:hidden">{job.seniority}</span>
+                  )}
+                </div>
               </div>
+              {!split && (
+                <div className={cn("relative z-10 hidden shrink-0 items-center gap-1 sm:group-focus-within:flex sm:group-hover:flex", selected && "sm:flex")}>
+                  <RowActions job={job} onAct={onAct} />
+                </div>
+              )}
+              <ScoreRing value={job.fitProb} size={split ? 36 : 42} />
             </div>
-            {!split && (
-              <div className={cn("relative z-10 hidden shrink-0 items-center gap-1 sm:group-focus-within:flex sm:group-hover:flex", selected && "sm:flex")}>
-                <RowActions job={job} onAct={onAct} />
-              </div>
-            )}
-            <ScoreRing value={job.fitProb} size={split ? 36 : 42} />
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <LocationChips location={job.location} remote={job.remote} />
+              <SalaryBadge salary={job.salary} />
+              <ChangeBadges badges={job.badges} />
+              {!split && <SkillChips reasons={job.reasons} missing={job.missingSkills} maxReasons={2} cap={2} inline />}
+            </div>
+            {split && reason && <p className="mt-1.5 truncate text-xs text-fg-subtle" title={reason.detail ?? undefined}>{reason.text}</p>}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <LocationChips location={job.location} remote={job.remote} />
-            <SalaryBadge salary={job.salary} />
-            <ChangeBadges badges={job.badges} />
-            {!split && <SkillChips reasons={job.reasons} missing={job.missingSkills} maxReasons={2} cap={2} inline />}
+        </div>
+        {!split && (
+          <div className="relative z-10 flex items-center gap-1 border-t border-border px-2 py-1.5 sm:hidden">
+            <RowActions job={job} onAct={onAct} mobile />
           </div>
-          {split && reason && <p className="mt-1.5 truncate text-xs text-fg-subtle" title={reason.detail ?? undefined}>{reason.text}</p>}
-        </div>
-      </div>
-      {!split && (
-        <div className="relative z-10 flex items-center gap-1 border-t border-border px-2 py-1.5 sm:hidden">
-          <RowActions job={job} onAct={onAct} mobile />
-        </div>
-      )}
-    </li>
+        )}
+      </li>
+    </JobContextMenu>
   );
 }
 
