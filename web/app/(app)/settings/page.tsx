@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <PageHeader title="Settings" description="Your profile drives scoring. Saving creates a new profile version and triggers re-scoring on the next run." />
-      <div className="mt-6 space-y-6">
+      <div className="ap-stagger mt-6 space-y-6">
         <ProfileForm profile={prof} />
         <SkillsToLearn gaps={gaps} />
         <ApiKeys serverKey={hasServerKey()} />

@@ -7,7 +7,7 @@ let lastG = 0;
 export function isTyping(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
   if (!t) return false;
-  return t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || !!t.closest("[cmdk-root],[role=dialog]");
+  return t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || !!t.closest("[cmdk-root],[role=dialog],[role=menu]");
 }
 
 export function useHotkeys(map: Record<string, (e: KeyboardEvent) => void>, opts: { enabled?: boolean; global?: boolean } = {}) {

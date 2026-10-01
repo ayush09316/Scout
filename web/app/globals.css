@@ -354,3 +354,27 @@ body {
 .wl-step-f { animation: wl-step-f 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .wl-step-b { animation: wl-step-b 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @media (prefers-reduced-motion: reduce) { .wl-step-f, .wl-step-b { animation: none; } }
+
+@keyframes ap-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes ap-pop { 0% { scale: 0.6; opacity: 0; } 60% { scale: 1.1; opacity: 1; } 100% { scale: 1; } }
+@keyframes ap-pop-on { 0% { scale: 1; } 45% { scale: 1.18; } 100% { scale: 1; } }
+@keyframes ap-pop-off { 0% { scale: 1; } 45% { scale: 0.85; } 100% { scale: 1; } }
+.ap-rise { animation: ap-rise 0.36s cubic-bezier(0.22, 1, 0.36, 1) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+.ap-stagger > * { animation: ap-rise 0.36s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.ap-stagger > :nth-child(2) { animation-delay: 40ms; }
+.ap-stagger > :nth-child(3) { animation-delay: 80ms; }
+.ap-stagger > :nth-child(4) { animation-delay: 120ms; }
+.ap-stagger > :nth-child(5) { animation-delay: 160ms; }
+.ap-stagger > :nth-child(6) { animation-delay: 200ms; }
+.ap-stagger > :nth-child(n + 7) { animation-delay: 240ms; }
+.ap-press { transition-property: color, background-color, border-color, box-shadow, opacity, transform; transition-duration: 0.15s; transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+.ap-press:active { transform: scale(0.97); }
+.ap-pop { animation: ap-pop 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.ap-pop-armed[data-state="checked"] { animation: ap-pop-on 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+.ap-pop-armed[data-state="unchecked"] { animation: ap-pop-off 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+.ap-lift { transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s, box-shadow 0.25s; }
+.ap-lift:hover { transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) {
+  .ap-rise, .ap-stagger > *, .ap-pop, .ap-pop-armed[data-state] { animation: none; }
+  .ap-press:active, .ap-lift:hover { transform: none; }
+}

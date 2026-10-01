@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Briefcase, CircleCheck, CircleDashed, Clock, ExternalLink, Layers } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Briefcase, CircleCheck, CircleDashed, Clock, ExternalLink, Layers } from "lucide-react";
 import { CompanyLogo } from "@/components/company-logo";
 import { ScoreRing } from "@/components/score-ring";
 import { LocationChips } from "@/components/job-chips";
@@ -85,10 +86,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
-      <Link href="/today" className="inline-flex items-center gap-1.5 rounded-md text-sm text-fg-muted hover:text-fg">
-        <ArrowLeft className="size-4" aria-hidden />
-        Back to Today
-      </Link>
+      <Breadcrumbs current={job.title} />
 
       <StickyJobHeader targetId="job-header" title={job.title} company={job.companyName} fit={job.fitProb}>
         <JobActions key={`c-${fb[0]?.action ?? "none"}`} jobId={job.id} url={job.url} lastAction={fb[0]?.action ?? null} compact />

@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/app-shell";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty";
+import { AnimatedCounter } from "@/components/animated-counter";
 import { getCronEnabled, getLatestEval, getRuns } from "@/lib/queries";
 import { ownerSession } from "@/auth";
 import { isDemo } from "@/lib/env";
@@ -47,9 +48,9 @@ export default async function HealthPage() {
 
   const tiles = [
     { label: "Last run", value: last ? timeAgo(last.startedAt) + " ago" : "—", sub: last ? last.status : "never", tone: last?.status === "ok" ? "good" : "warn" },
-    { label: "Jobs fetched", value: (last?.counts.fetched ?? 0).toLocaleString("en-IN"), sub: `${last?.counts.new ?? 0} new · ${last?.counts.scored ?? 0} scored` },
-    { label: `Spend · ${runs.length} runs`, value: `$${totalCost.toFixed(3)}`, sub: `$${(totalCost / Math.max(1, runs.length)).toFixed(4)} / run` },
-    { label: `Errors · ${runs.length} runs`, value: String(errors.length), sub: bySource[0] ? `most from ${bySource[0][0]}` : "all clear" },
+    { label: "Jobs fetched", value: <AnimatedCounter value={last?.counts.fetched ?? 0} />, sub: `${last?.counts.new ?? 0} new · ${last?.counts.scored ?? 0} scored` },
+    { label: `Spend · ${runs.length} runs`, value: <AnimatedCounter value={totalCost} prefix="$" decimals={3} />, sub: `$${(totalCost / Math.max(1, runs.length)).toFixed(4)} / run` },
+    { label: `Errors · ${runs.length} runs`, value: <AnimatedCounter value={errors.length} />, sub: bySource[0] ? `most from ${bySource[0][0]}` : "all clear" },
   ];
 
   const intelKeys: [keyof RunCounts, string][] = [
@@ -80,7 +81,7 @@ export default async function HealthPage() {
         </div>
       ) : (
         <>
-          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="ap-stagger mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {tiles.map((t) => (
               <Card key={t.label} className="px-4 py-3">
                 <p className="text-xs text-fg-muted">{t.label}</p>
@@ -91,7 +92,7 @@ export default async function HealthPage() {
           </div>
 
           {(intel.length > 0 || (last?.timings.length ?? 0) > 0) && (
-            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] [&>*]:min-w-0" data-testid="run-intel">
+            <div className="ap-stagger mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] [&>*]:min-w-0" data-testid="run-intel">
               <Card>
                 <CardHeader title="Tracking & intel · last run" description="Versions, events, salary estimates, company stats, skill gaps and reminders" />
                 {intel.length ? (
@@ -99,7 +100,9 @@ export default async function HealthPage() {
                     {intel.map((t) => (
                       <div key={t.label} className="bg-surface px-4 py-3">
                         <dt className="text-xs text-fg-muted">{t.label}</dt>
-                        <dd className="mt-0.5 font-mono text-lg font-semibold tabular-nums">{t.value.toLocaleString("en-IN")}</dd>
+                        <dd className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
+                          <AnimatedCounter value={t.value} />
+                        </dd>
                       </div>
                     ))}
                   </dl>
@@ -128,7 +131,7 @@ export default async function HealthPage() {
             </div>
           )}
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
+          <div className="ap-stagger mt-4 grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
             <Card>
               <RunsCard data={runData} />
             </Card>
@@ -171,7 +174,7 @@ export default async function HealthPage() {
         </>
       )}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] [&>*]:min-w-0">
+      <div className="ap-stagger mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] [&>*]:min-w-0">
         <Card className="min-w-0">
           <CardHeader
             title="Latest eval"

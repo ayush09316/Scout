@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { ownerSession as auth } from "@/auth";
 import { db } from "./db";
 import { companies, coverNotes, feedback, interviewPacks, labels, profile, resumeVariants, settings, FEEDBACK_ACTIONS, type FeedbackAction, type Preferences, type PrepPack } from "./db/schema";
@@ -55,6 +55,53 @@ export async function unlabelJob(jobId: number): Promise<ActionResult> {
   const g = await guard();
   if (g) return g;
   await db.delete(labels).where(eq(labels.jobId, jobId));
+  return { ok: true };
+}
+
+const MAX_BATCH = 1000;
+
+const batchIds = (ids: number[]) => [...new Set(ids.filter(Number.isInteger))];
+
+export async function addFeedbackBatch(jobIds: number[], action: FeedbackAction): Promise<ActionResult<{ ids: number[] }>> {
+  const g = await guard();
+  if (g) return g as ActionResult<{ ids: number[] }>;
+  if (!FEEDBACK_ACTIONS.includes(action)) return { ok: false, error: "Invalid action" };
+  const ids = batchIds(jobIds);
+  if (!ids.length) return { ok: false, error: "No jobs selected" };
+  if (ids.length > MAX_BATCH) return { ok: false, error: `Select at most ${MAX_BATCH} jobs` };
+  const rows = await db.insert(feedback).values(ids.map((jobId) => ({ jobId, action, note: null }))).returning({ id: feedback.id });
+  revalidatePath("/tracker");
+  return { ok: true, data: { ids: rows.map((r) => r.id) } };
+}
+
+export async function undoFeedbackBatch(ids: number[]): Promise<ActionResult> {
+  const g = await guard();
+  if (g) return g;
+  const clean = batchIds(ids);
+  if (clean.length) await db.delete(feedback).where(inArray(feedback.id, clean));
+  revalidatePath("/tracker");
+  return { ok: true };
+}
+
+export async function labelJobs(jobIds: number[], label: "fit" | "no"): Promise<ActionResult> {
+  const g = await guard();
+  if (g) return g;
+  if (label !== "fit" && label !== "no") return { ok: false, error: "Invalid label" };
+  const ids = batchIds(jobIds);
+  if (!ids.length) return { ok: false, error: "No jobs selected" };
+  if (ids.length > MAX_BATCH) return { ok: false, error: `Select at most ${MAX_BATCH} jobs` };
+  await db
+    .insert(labels)
+    .values(ids.map((jobId) => ({ jobId, label, split: splitFor(jobId) })))
+    .onConflictDoUpdate({ target: labels.jobId, set: { label, at: sql`now()` } });
+  return { ok: true };
+}
+
+export async function unlabelJobs(jobIds: number[]): Promise<ActionResult> {
+  const g = await guard();
+  if (g) return g;
+  const ids = batchIds(jobIds);
+  if (ids.length) await db.delete(labels).where(inArray(labels.jobId, ids));
   return { ok: true };
 }
 

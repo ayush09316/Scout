@@ -3,7 +3,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function Loading() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
-      <Skeleton className="h-4 w-28" />
+      <div className="flex h-5 items-center">
+        <Skeleton className="h-3 w-48" />
+      </div>
       <div className="mt-4 flex gap-4">
         <Skeleton className="size-13 rounded-lg" />
         <div className="flex-1 space-y-2">

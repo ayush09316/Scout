@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Ellipsis, Keyboard, LogOut, Search } from "lucide-react";
 import { BrandMark } from "./landing/brand";
+import { Breadcrumbs } from "./breadcrumbs";
 import { signOutAction } from "@/lib/auth-actions";
 import { MOBILE_PRIMARY, NAV as ALL_NAV, NAV_GROUPS, OWNER_ONLY } from "./nav-items";
 import { RemindersBell } from "./reminders-bell";
@@ -182,6 +183,7 @@ export function PageHeader({ title, description, actions }: { title: React.React
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
+        <Breadcrumbs className="mb-1" />
         <h1 className="text-xl font-semibold tracking-tight text-fg">{title}</h1>
         {description && <div className="mt-1 text-sm text-fg-muted">{description}</div>}
       </div>

@@ -51,7 +51,7 @@ export function Board({ initial }: { initial: TrackerCard[] }) {
       onDragCancel={() => setActive(null)}
       accessibility={{ screenReaderInstructions: { draggable: "Press space to pick up a job, arrow keys to move between stages, space to drop." } }}
     >
-      <div className="-mx-4 mt-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 md:-mx-8 md:px-8 xl:grid xl:grid-cols-5 xl:overflow-visible">
+      <div className="ap-stagger -mx-4 mt-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 md:-mx-8 md:px-8 xl:grid xl:grid-cols-5 xl:overflow-visible">
         {COLUMNS.map((col) => (
           <Column key={col.id} col={col} cards={cards.filter((c) => c.stage === col.id)} />
         ))}
@@ -122,7 +122,7 @@ function CardView({ card, overlay }: { card: TrackerCard; overlay?: boolean }) {
       data-testid="tracker-card"
       className={cn(
         "group cursor-grab rounded-lg border border-border bg-surface p-3 shadow-card transition-colors hover:border-border-strong active:cursor-grabbing",
-        overlay && "rotate-1 shadow-pop",
+        overlay ? "rotate-1 shadow-pop" : "ap-lift",
       )}
     >
       <div className="flex items-start gap-2.5">

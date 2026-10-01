@@ -4,6 +4,7 @@ import { Download, EyeOff, Megaphone } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
+import { AnimatedCounter } from "@/components/animated-counter";
 import { ownerSession } from "@/auth";
 import { isDemo } from "@/lib/env";
 import { allEntries, waitlistStats } from "@/lib/waitlist";
@@ -36,11 +37,11 @@ export default async function WaitlistAdmin() {
   const likelihood = LIKELIHOOD.map((v) => ({ label: String(v), n: stats.likelihood.find((p) => p.label === String(v))?.n ?? 0 }));
   const mean = stats.likelihoodMean == null ? null : stats.likelihoodMean.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const tiles = [
-    { label: "Total signups", value: n(stats.total), sub: stats.total ? `${n(rows.filter((r) => r.referredBy).length)} via referral` : "none yet" },
-    { label: "Last 7 days", value: n(stats.last7), sub: stats.total ? `${pct(stats.last7, stats.total)} of all` : "—" },
-    { label: "Survey completion", value: pct(stats.completed, stats.total), sub: `${n(stats.completed)} finished · ${n(stats.started)} started` },
-    { label: "Hot leads", value: n(stats.hot), sub: "Actively applying · likelihood ≥ 4" },
-    { label: "Pay likelihood", value: mean == null ? "—" : `${mean} / 5`, sub: stats.likelihoodN ? `mean of ${n(stats.likelihoodN)} answers` : "nobody answered yet" },
+    { label: "Total signups", value: <AnimatedCounter value={stats.total} />, sub: stats.total ? `${n(rows.filter((r) => r.referredBy).length)} via referral` : "none yet" },
+    { label: "Last 7 days", value: <AnimatedCounter value={stats.last7} />, sub: stats.total ? `${pct(stats.last7, stats.total)} of all` : "—" },
+    { label: "Survey completion", value: stats.total ? <AnimatedCounter value={Math.round((stats.completed / stats.total) * 100)} suffix="%" /> : "—", sub: `${n(stats.completed)} finished · ${n(stats.started)} started` },
+    { label: "Hot leads", value: <AnimatedCounter value={stats.hot} />, sub: "Actively applying · likelihood ≥ 4" },
+    { label: "Pay likelihood", value: stats.likelihoodMean == null ? "—" : <AnimatedCounter value={stats.likelihoodMean} decimals={1} suffix=" / 5" />, sub: stats.likelihoodN ? `mean of ${n(stats.likelihoodN)} answers` : "nobody answered yet" },
   ];
   const panels = [
     { title: "Job search stage", data: ordered(STAGES, stats.stages), width: 150, testId: "wl-chart-stage" },
@@ -58,7 +59,7 @@ export default async function WaitlistAdmin() {
         description="Signups from the public landing page. Positions rank by join time, a day earlier per referral and a day earlier for a finished survey."
         actions={
           stats.total > 0 ? (
-            <a href="/admin/waitlist/export" download className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-fg shadow-card transition-colors hover:bg-muted">
+            <a href="/admin/waitlist/export" download className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-fg shadow-card transition-colors hover:bg-muted ap-press">
               <Download className="size-4 text-fg-subtle" aria-hidden />
               Export CSV
             </a>
@@ -82,7 +83,7 @@ export default async function WaitlistAdmin() {
         </div>
       ) : (
         <>
-          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5" data-testid="wl-tiles">
+          <div className="ap-stagger mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5" data-testid="wl-tiles">
             {tiles.map((t) => (
               <Card key={t.label} className="px-4 py-3">
                 <p className="text-xs text-fg-muted">{t.label}</p>
@@ -92,7 +93,7 @@ export default async function WaitlistAdmin() {
             ))}
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] [&>*]:min-w-0">
+          <div className="ap-stagger mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] [&>*]:min-w-0">
             <Card>
               <CardHeader title="Signups per day" description="Last 30 days, IST" />
               <div className="h-60 p-3">
@@ -107,7 +108,7 @@ export default async function WaitlistAdmin() {
             </Card>
           </div>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
+          <div className="ap-stagger mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
             {panels.map((p) => {
               const total = answeredOf(p.data);
               return (
@@ -121,7 +122,7 @@ export default async function WaitlistAdmin() {
             })}
           </div>
 
-          <div className="mt-4">
+          <div className="ap-rise mt-4">
             <WaitlistTable rows={rows} />
           </div>
         </>

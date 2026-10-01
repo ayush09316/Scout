@@ -31,7 +31,7 @@ export default async function TrackerPage() {
           </span>
         </p>
       )}
-      <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-surface shadow-card sm:grid-cols-4" aria-label="Funnel">
+      <div className="ap-rise mt-5 grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-surface shadow-card sm:grid-cols-4" aria-label="Funnel">
         {stats.map((s, i) => (
           <div key={s.label} className={`px-4 py-3 ${i % 2 ? "border-l" : ""} ${i > 1 ? "border-t sm:border-t-0" : ""} ${i === 2 ? "sm:border-l" : ""} border-border`}>
             <p className="text-xs text-fg-muted">{s.label}</p>

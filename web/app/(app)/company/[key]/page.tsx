@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Building2 } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Building2 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
 import { Pagination } from "@/components/ui/pagination";
@@ -43,10 +43,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
-      <Link href="/today" className="inline-flex items-center gap-1.5 rounded-md text-sm text-fg-muted hover:text-fg">
-        <ArrowLeft className="size-4" aria-hidden />
-        Back to Today
-      </Link>
+      <Breadcrumbs current={intel.name} />
       <header className="mt-4 flex items-center gap-4">
         <CompanyLogo name={intel.name} domain={intel.domain} size={52} />
         <div className="min-w-0">
@@ -57,7 +54,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
         </div>
       </header>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="company-stats">
+      <div className="ap-stagger mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="company-stats">
         <Card className="px-4 py-3">
           <Stat label="Open roles" value={intel.openJobs} sub={`${intel.matches} good matches`} />
         </Card>
@@ -75,7 +72,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
         </Card>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] [&>*]:min-w-0">
+      <div className="ap-stagger mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] [&>*]:min-w-0">
         <Card>
           <CardHeader
             title="Hiring velocity"
@@ -134,7 +131,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] [&>*]:min-w-0">
+      <div className="ap-stagger mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] [&>*]:min-w-0">
         <section aria-label="Open roles">
           <h2 className="mb-3 text-sm font-semibold">
             Open roles <span className="font-mono text-xs font-normal text-fg-subtle tabular-nums" data-testid="open-roles-total">{total.toLocaleString("en-IN")}</span>

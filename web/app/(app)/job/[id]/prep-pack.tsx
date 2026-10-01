@@ -158,7 +158,7 @@ export function PrepPack({ jobId, initial, autoGenerate }: { jobId: number; init
                             )}
                           >
                             {on && (
-                              <svg viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="2">
+                              <svg viewBox="0 0 12 12" className="ap-pop size-3" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M2.5 6.5 5 9l4.5-6" />
                               </svg>
                             )}

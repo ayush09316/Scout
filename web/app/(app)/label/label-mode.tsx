@@ -88,14 +88,14 @@ export function LabelMode({ queue, labeled, fit, target }: { queue: Item[]; labe
       </div>
 
       {count.n < 20 && (
-        <section data-testid="label-intro" className="app-glow relative mt-5 overflow-hidden rounded-xl border border-border bg-surface px-5 py-4 shadow-card">
+        <section data-testid="label-intro" className="ap-rise app-glow relative mt-5 overflow-hidden rounded-xl border border-border bg-surface px-5 py-4 shadow-card">
           <h2 className="text-[15px] font-semibold tracking-tight">
             Why label? <span className="font-serif text-lg font-normal italic">Honest numbers.</span>
           </h2>
           <p className="mt-1 text-[13px] text-fg-muted">
             Every Fit / Not-a-fit becomes ground truth for the eval on Health — precision@10, recall@50 and the calibration curve all come from these labels, split deterministically into dev and test.
           </p>
-          <ul className="mt-3 grid gap-2 text-xs text-fg-muted sm:grid-cols-3">
+          <ul className="ap-stagger mt-3 grid gap-2 text-xs text-fg-muted sm:grid-cols-3">
             <li className="rounded-lg bg-surface-2 px-3 py-2">
               <span className="block font-mono text-sm font-semibold text-fg tabular-nums">{count.n}</span>labelled so far
             </li>
@@ -131,7 +131,7 @@ export function LabelMode({ queue, labeled, fit, target }: { queue: Item[]; labe
           key={job.id}
           data-testid="label-card"
           className={cn(
-            "mt-6 overflow-hidden rounded-xl border bg-surface shadow-card transition-colors duration-150",
+            "ap-rise mt-6 overflow-hidden rounded-xl border bg-surface shadow-card transition-colors duration-150",
             flash === "fit" ? "border-good" : flash === "no" ? "border-bad" : "border-border",
           )}
         >
